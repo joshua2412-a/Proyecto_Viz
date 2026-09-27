@@ -1,0 +1,752 @@
+/* ========================================================================== *
+   Dashboard de Rotación Laboral · hoja de estilos
+   Dash carga automáticamente todo lo que esté en /assets, sin importarlo.
+
+   Paleta pastel: superficies muy claras, tinta azul grisácea y dos colores de
+   serie (azul = permanece, coral = abandona) que se usan siempre en ese orden.
+   ========================================================================== */
+
+:root {
+  /* Superficies */
+  --bg-page: #f4f7fb;
+  --bg-card: #ffffff;
+  --bg-soft: #eaf1fa;
+  --bg-soft-alt: #fdeee8;
+  --bg-soft-mint: #e7f5f0;
+  --bg-soft-lilac: #f0ebf9;
+
+  /* Tinta */
+  --ink: #1f2933;
+  --ink-soft: #52606d;
+  --ink-muted: #7b8794;
+  --hairline: #e4e9f0;
+
+  /* Series */
+  --series-1: #4e8cd9;
+  --series-2: #e0785a;
+  --series-3: #2fa987;
+  --series-4: #9b7bd4;
+  --series-5: #e0a83c;
+
+  /* Geometría */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(31, 41, 51, 0.04), 0 8px 24px rgba(31, 41, 51, 0.06);
+  --shadow-hover: 0 2px 4px rgba(31, 41, 51, 0.06), 0 14px 32px rgba(31, 41, 51, 0.1);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Base                                                                       */
+/* -------------------------------------------------------------------------- */
+html,
+body {
+  background: var(--bg-page);
+  color: var(--ink-soft);
+  font-family: var(--font);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-root {
+  background: var(--bg-page) !important;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-container {
+  max-width: 1500px;
+  padding: 0 24px;
+  flex: 1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Barra superior                                                             */
+/* -------------------------------------------------------------------------- */
+.topbar {
+  background: linear-gradient(120deg, #eaf1fa 0%, #f0ebf9 48%, #fdeee8 100%);
+  border-bottom: 1px solid var(--hairline);
+  padding: 30px 24px 26px;
+}
+
+.topbar .container-fluid {
+  max-width: 1500px;
+}
+
+.brand-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--series-1);
+  margin-bottom: 6px;
+}
+
+.brand-title {
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+
+.brand-subtitle {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  max-width: 620px;
+  line-height: 1.55;
+}
+
+.tech-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tech-pill {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pestañas principales                                                       */
+/* -------------------------------------------------------------------------- */
+.navbar-tabs {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--hairline);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 2px 10px rgba(31, 41, 51, 0.04);
+}
+
+.navbar-tabs .container-fluid {
+  max-width: 1500px;
+  padding: 0 24px;
+}
+
+.main-tabs {
+  border-bottom: none !important;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.main-tabs .nav-link,
+.main-tab {
+  border: none !important;
+  background: transparent !important;
+  color: var(--ink-muted) !important;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 15px 16px !important;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0 !important;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.main-tabs .nav-link:hover {
+  color: var(--series-1) !important;
+  background: var(--bg-soft) !important;
+}
+
+.main-tabs .nav-link.active,
+.main-tab-active {
+  color: var(--series-1) !important;
+  border-bottom-color: var(--series-1) !important;
+  background: transparent !important;
+}
+
+/* Pestañas internas (dentro de Resultados) */
+.inner-tabs {
+  border-bottom: 1px solid var(--hairline) !important;
+  margin-bottom: 22px;
+}
+
+.inner-tabs .nav-link {
+  border: none !important;
+  background: transparent !important;
+  color: var(--ink-muted) !important;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 11px 18px !important;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+}
+
+.inner-tabs .nav-link.active {
+  color: var(--series-1) !important;
+  background: var(--bg-soft) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cabeceras de página y secciones                                            */
+/* -------------------------------------------------------------------------- */
+.tab-content {
+  padding: 30px 0 46px;
+  animation: fade-in 0.28s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.page-header {
+  margin-bottom: 26px;
+}
+
+.page-title {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 8px;
+  letter-spacing: -0.015em;
+}
+
+.page-subtitle {
+  font-size: 1rem;
+  color: var(--ink-soft);
+  max-width: 900px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.page-rule {
+  margin: 20px 0 0;
+  border: none;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--series-1), var(--series-4) 45%, var(--series-2));
+  opacity: 0.55;
+  max-width: 220px;
+}
+
+.section-title {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 30px 0 16px;
+  padding-left: 12px;
+  border-left: 4px solid var(--series-1);
+  line-height: 1.3;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tarjetas                                                                   */
+/* -------------------------------------------------------------------------- */
+.soft-card {
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  height: 100%;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.soft-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.soft-card .card-body {
+  padding: 22px 24px;
+}
+
+.card-title-custom {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 6px;
+  line-height: 1.35;
+}
+
+.card-subtitle-custom {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.body-text {
+  font-size: 0.93rem;
+  line-height: 1.68;
+  color: var(--ink-soft);
+  margin-bottom: 13px;
+}
+
+.body-text:last-child {
+  margin-bottom: 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* KPIs                                                                       */
+/* -------------------------------------------------------------------------- */
+.kpi-card .card-body {
+  padding: 18px 20px;
+}
+
+.kpi-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  margin-bottom: 7px;
+}
+
+.kpi-value {
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-detail {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 7px;
+  line-height: 1.45;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Listas, bloques destacados y código                                        */
+/* -------------------------------------------------------------------------- */
+.bullet-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.bullet-list li {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.bullet-list li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bullet-color, var(--series-1));
+}
+
+.callout {
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  margin: 16px 0 22px;
+}
+
+.callout-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.callout-text {
+  font-size: 0.9rem;
+  line-height: 1.62;
+  color: var(--ink-soft);
+}
+
+.code-block,
+.formula-block {
+  background: #f7f9fc;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 15px 17px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  overflow-x: auto;
+  margin: 14px 0;
+}
+
+.formula-block {
+  text-align: center;
+  font-size: 14px;
+  background: var(--bg-soft);
+}
+
+.code-block {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  white-space: pre;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tarjetas de guía, etapas y numeración                                      */
+/* -------------------------------------------------------------------------- */
+.guide-icon {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.guide-name {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 7px;
+  line-height: 1.35;
+}
+
+.guide-text {
+  font-size: 0.87rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.objetivo-general {
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.objetivo-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bg-soft);
+  color: var(--series-1);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.etapa-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.etapa-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--series-1);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.etapa-archivo {
+  font-size: 11.5px;
+  background: #f7f9fc;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 2px 8px;
+  color: var(--ink-soft);
+}
+
+.etiqueta-categoria {
+  display: inline-block;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 10px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tablas                                                                     */
+/* -------------------------------------------------------------------------- */
+.soft-table {
+  font-size: 0.87rem;
+  margin: 0;
+}
+
+.soft-table thead th {
+  background: var(--bg-soft);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  padding: 12px 14px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.soft-table tbody td {
+  padding: 11px 14px;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-soft);
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.soft-table tbody tr:hover td {
+  background: #fafcff;
+}
+
+.soft-table .cell-strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Gráficos y leyendas                                                        */
+/* -------------------------------------------------------------------------- */
+.graph {
+  width: 100%;
+}
+
+.graph-note {
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1.55;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
+.legend-chips {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Controles de formulario                                                    */
+/* -------------------------------------------------------------------------- */
+.controls-row {
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px 20px;
+  margin: 0 0 20px;
+}
+
+.control-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-muted);
+  margin-bottom: 7px;
+}
+
+.control-dropdown .Select-control,
+.control-dropdown .Select__control {
+  border-radius: var(--radius-sm) !important;
+  border-color: var(--hairline) !important;
+}
+
+.control-radio .form-check-label {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.control-radio .form-check {
+  margin-right: 18px;
+}
+
+.form-field {
+  margin-bottom: 30px;
+}
+
+.form-field:last-of-type {
+  margin-bottom: 22px;
+}
+
+.form-slider .rc-slider-track {
+  background-color: var(--series-1);
+  height: 5px;
+}
+
+.form-slider .rc-slider-rail {
+  background-color: var(--hairline);
+  height: 5px;
+}
+
+.form-slider .rc-slider-handle {
+  border-color: var(--series-1);
+  background: #fff;
+  width: 17px;
+  height: 17px;
+  margin-top: -6px;
+  opacity: 1;
+  box-shadow: 0 1px 4px rgba(31, 41, 51, 0.18);
+}
+
+.form-slider .rc-slider-handle:hover,
+.form-slider .rc-slider-handle:focus {
+  border-color: var(--series-1);
+  box-shadow: 0 0 0 5px rgba(78, 140, 217, 0.18);
+}
+
+.form-slider .rc-slider-mark-text {
+  font-size: 10.5px;
+  color: var(--ink-muted);
+}
+
+.form-slider .rc-slider-dot {
+  border-color: var(--hairline);
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.btn-predecir {
+  background: var(--series-1) !important;
+  border-color: var(--series-1) !important;
+  border-radius: var(--radius-sm) !important;
+  font-weight: 600;
+  padding: 11px 20px !important;
+  flex: 1 1 auto;
+}
+
+.btn-predecir:hover {
+  background: #3d78c0 !important;
+  border-color: #3d78c0 !important;
+}
+
+.btn-reset {
+  border-radius: var(--radius-sm) !important;
+  font-weight: 600;
+  color: var(--ink-soft) !important;
+  border-color: var(--hairline) !important;
+  background: #fff !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Panel de resultado de la predicción                                        */
+/* -------------------------------------------------------------------------- */
+.riesgo-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 4px;
+}
+
+.riesgo-icono {
+  font-size: 1.1rem;
+}
+
+.riesgo-nivel {
+  font-size: 1.22rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.riesgo-lectura {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  margin-top: 10px;
+}
+
+.riesgo-comparacion {
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  margin-top: 9px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Carga y pie                                                                */
+/* -------------------------------------------------------------------------- */
+.loading-wrapper {
+  min-height: 300px;
+}
+
+.footer {
+  background: var(--bg-card);
+  border-top: 1px solid var(--hairline);
+  padding: 20px 24px;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.footer .container-fluid {
+  max-width: 1500px;
+}
+
+.footer-sep {
+  color: var(--hairline);
+  margin: 0 4px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive                                                                 */
+/* -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 0 16px;
+  }
+
+  .navbar-tabs .container-fluid {
+    padding: 0 8px;
+  }
+
+  .brand-title {
+    font-size: 1.6rem;
+  }
+
+  .page-title {
+    font-size: 1.35rem;
+  }
+
+  .kpi-value {
+    font-size: 1.55rem;
+  }
+
+  .soft-card .card-body {
+    padding: 18px;
+  }
+
+  .tech-pills {
+    margin-top: 16px;
+  }
+}

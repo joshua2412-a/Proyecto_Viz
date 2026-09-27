@@ -1,0 +1,22 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Artefactos generados (se recrean con los scripts del proyecto)
+# Descomenta estas líneas si prefieres no versionar los artefactos:
+# data/employee_attrition.csv
+# model/model.pkl
+# model/metrics.json
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
