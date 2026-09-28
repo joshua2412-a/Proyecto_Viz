@@ -1,7 +1,7 @@
 """
 Pestaña 6 · Metodología
-Describe el flujo completo del proyecto: origen de los datos, preprocesamiento,
-entrenamiento, validación y métricas de evaluación.
+Cómo se pasó del CSV al modelo entrenado: partición, preprocesamiento,
+búsqueda de hiperparámetros y evaluación. Todo reproducible con una semilla.
 """
 
 from __future__ import annotations
@@ -14,252 +14,266 @@ from utils.components import (
     callout,
     card,
     data_table,
+    enlace_externo,
     kpi_row,
     page_header,
     paragraph,
     section_title,
 )
-from utils.config import N_EMPLEADOS, RANDOM_STATE, TEST_SIZE
-from utils.data_loader import get_dataframe, load_metrics
-from utils.theme import COLOR_ABANDONA, COLOR_PERMANECE, SERIES
+from utils.config import (
+    CATEGORICAL_FEATURES,
+    CV_FOLDS,
+    GENE_FEATURES,
+    NUMERIC_FEATURES,
+    RANDOM_STATE,
+    TEST_SIZE,
+    URL_LIBRO_EDA,
+)
+from utils.data_loader import load_metrics, proporcion_grado, tamanos_particion
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
-# Etapas del pipeline metodológico
 ETAPAS = [
     (
         "1",
-        "Generación de datos",
-        "data/generate_data.py",
-        "Se simulan las variables del empleado con distribuciones plausibles y "
-        "dependencias explícitas entre ellas (la antigüedad está acotada por la "
-        "edad, el salario depende del departamento y la experiencia). El abandono "
-        "se genera con un proceso logístico conocido más ruido binomial.",
+        "Verificación del dataset",
+        "839 registros y 24 variables, sin valores nulos ni faltantes. El único "
+        "registro duplicado corresponde a dos pacientes distintos que comparten "
+        "fenotipo y perfil genético, así que se conserva. Las variables binarias se "
+        "convierten a tipo categórico para el análisis exploratorio.",
     ),
     (
         "2",
-        "Análisis exploratorio",
-        "tabs/resultados.py",
-        "Se describe la composición de la plantilla, la distribución de cada "
-        "variable por grupo de abandono y la estructura de correlaciones, para "
-        "verificar que existe señal antes de modelar.",
+        "Partición estratificada 80/20",
+        "Se reserva el 20 % de los pacientes para la validación final antes de mirar "
+        "cualquier estadístico, de modo que el EDA no filtre información del conjunto "
+        "de prueba. La estratificación mantiene la proporción LGG/GBM en ambos lados.",
     ),
     (
         "3",
-        "Preprocesamiento",
-        "ColumnTransformer",
-        "Las seis variables numéricas se estandarizan (media 0, desviación 1) para "
-        "que los coeficientes sean comparables; el departamento se codifica con "
-        "one-hot encoding descartando una categoría de referencia.",
+        "Análisis exploratorio sobre entrenamiento",
+        "Univariado (distribuciones, normalidad, valores atípicos), bivariado contra "
+        "el grado (Mann-Whitney para la edad, chi-cuadrado y V de Cramér para las "
+        "categóricas) y diagnóstico de multicolinealidad entre mutaciones.",
     ),
     (
         "4",
-        "Partición de los datos",
-        "train_test_split",
-        f"División estratificada {int((1 - TEST_SIZE) * 100)}/{int(TEST_SIZE * 100)} "
-        "que conserva la proporción de abandonos en ambos conjuntos, con semilla "
-        f"fija ({RANDOM_STATE}) para garantizar reproducibilidad.",
+        "Preprocesamiento en pipeline",
+        "Un ColumnTransformer aplica a cada tipo de variable su transformación y va "
+        "dentro del mismo objeto que el modelo: el .pkl acepta datos en crudo y no "
+        "hay riesgo de aplicar un escalado distinto en inferencia.",
     ),
     (
         "5",
-        "Entrenamiento",
-        "LogisticRegression",
-        "Regresión logística con `class_weight='balanced'`, que pondera la clase "
-        "minoritaria para que el modelo no se limite a predecir 'permanece' en "
-        "todos los casos.",
+        f"Búsqueda de hiperparámetros con validación cruzada de {CV_FOLDS} particiones",
+        "GridSearchCV sobre 52 combinaciones (13 valores de C × 2 penalizaciones × 2 "
+        "configuraciones de class_weight), optimizando AUC-ROC por ser robusta ante "
+        "el desbalance de clases.",
     ),
     (
         "6",
-        "Validación y persistencia",
-        "model/model.pkl",
-        "Evaluación sobre el conjunto de prueba, validación cruzada de 5 pliegues "
-        "sobre entrenamiento y serialización del pipeline completo con joblib.",
+        "Evaluación sobre el conjunto reservado",
+        "Métricas de clasificación binaria más los tiempos de búsqueda, entrenamiento "
+        "e inferencia, para poder comparar el baseline con modelos más complejos en "
+        "las dos dimensiones: error y coste computacional.",
     ),
 ]
 
-# Definición de las métricas de evaluación
-METRICAS_DEF = [
-    [
-        "Accuracy",
-        "(VP + VN) / Total",
-        "Proporción de aciertos sobre todos los casos.",
-        "Engañosa con clases desbalanceadas: predecir siempre 'permanece' ya "
-        "acierta ~81%.",
-    ],
-    [
-        "Precisión",
-        "VP / (VP + FP)",
-        "De los empleados señalados como riesgo, cuántos abandonaron realmente.",
-        "Mide el coste de intervenir sobre quien no pensaba irse.",
-    ],
-    [
-        "Recall (sensibilidad)",
-        "VP / (VP + FN)",
-        "De los que abandonaron, cuántos detectó el modelo.",
-        "Métrica prioritaria: no detectar una salida es el error caro.",
-    ],
-    [
-        "F1-score",
-        "2·(P·R) / (P + R)",
-        "Media armónica entre precisión y recall.",
-        "Resume el equilibrio entre ambos errores.",
-    ],
-    [
-        "AUC-ROC",
-        "Área bajo la curva ROC",
-        "Probabilidad de que el modelo asigne más riesgo a quien sí abandonó.",
-        "Independiente del umbral de decisión.",
-    ],
-]
 
-SUPUESTOS_DATOS = [
-    "Los datos son sintéticos: reproducen relaciones plausibles del dominio, no "
-    "una empresa real.",
-    "No contienen información personal identificable, lo que evita cualquier "
-    "problema ético o legal de tratamiento de datos.",
-    "El proceso generador es conocido, lo que permite verificar que el modelo "
-    "recupera las relaciones esperadas.",
-    "La semilla aleatoria está fijada: cualquier persona que ejecute el proyecto "
-    "obtiene exactamente el mismo dataset.",
-]
-
-
-def _kpis_metodologia() -> list[dict]:
-    """Cifras del diseño experimental."""
+def _kpis() -> list[dict]:
+    """Cifras de la partición y de la validación cruzada."""
+    tamanos = tamanos_particion()
     metricas = load_metrics()
-    df = get_dataframe()
+    proporciones = proporcion_grado("train").set_index("grado")
+
     return [
         {
-            "valor": f"{N_EMPLEADOS:,}",
-            "etiqueta": "Registros simulados",
-            "detalle": f"{df.shape[1] - 1} variables + objetivo",
-            "color": SERIES[0],
+            "valor": f"{tamanos['train']}",
+            "etiqueta": "Pacientes en entrenamiento",
+            "detalle": f"LGG {proporciones.loc['LGG', 'porcentaje']:.1f}% · "
+                       f"GBM {proporciones.loc['GBM', 'porcentaje']:.1f}%",
+            "color": COLOR_LGG,
         },
         {
-            "valor": f"{metricas['n_train']:,}",
-            "etiqueta": "Conjunto de entrenamiento",
-            "detalle": f"{int((1 - TEST_SIZE) * 100)}% de los datos",
-            "color": SERIES[2],
-        },
-        {
-            "valor": f"{metricas['n_test']:,}",
-            "etiqueta": "Conjunto de prueba",
-            "detalle": f"{int(TEST_SIZE * 100)}% nunca visto por el modelo",
-            "color": SERIES[3],
+            "valor": f"{tamanos['test']}",
+            "etiqueta": "Pacientes en prueba",
+            "detalle": f"Reservados antes del EDA ({TEST_SIZE:.0%} del total)",
+            "color": COLOR_GBM,
         },
         {
             "valor": f"{metricas['cv_auc_media']:.3f}",
-            "etiqueta": "AUC en validación cruzada",
-            "detalle": f"5 pliegues · ± {metricas['cv_auc_desviacion']:.3f}",
-            "color": SERIES[1],
+            "etiqueta": f"AUC-ROC en CV ({CV_FOLDS}-fold)",
+            "detalle": f"Desviación ± {metricas['cv_auc_desviacion']:.3f}",
+            "color": SERIES[2],
+        },
+        {
+            "valor": f"seed {RANDOM_STATE}",
+            "etiqueta": "Reproducibilidad",
+            "detalle": "Misma semilla en libro y dashboard",
+            "color": SERIES[3],
         },
     ]
 
 
+def _tabla_preprocesamiento() -> dbc.Table:
+    """Qué transformación recibe cada bloque de variables y por qué."""
+    return data_table(
+        ["Bloque", "Variables", "Transformación", "Motivo"],
+        [
+            [
+                "Clínica numérica",
+                ", ".join(NUMERIC_FEATURES),
+                "StandardScaler",
+                "La regresión logística regularizada es sensible a la escala: sin "
+                "estandarizar, la penalización castigaría a la edad por estar medida "
+                "en años.",
+            ],
+            [
+                "Clínicas categóricas",
+                ", ".join(CATEGORICAL_FEATURES),
+                "OneHotEncoder(drop='if_binary', handle_unknown='ignore')",
+                "Race tiene cuatro niveles sin orden natural; Gender es binaria y "
+                "basta una columna.",
+            ],
+            [
+                "Mutacionales",
+                f"{len(GENE_FEATURES)} genes",
+                "passthrough",
+                "Ya vienen codificadas como indicadores 0/1: transformarlas no "
+                "añadiría nada.",
+            ],
+        ],
+    )
+
+
+def _tabla_hiperparametros() -> dbc.Table:
+    """Configuración seleccionada por la búsqueda y su lectura."""
+    hiperparametros = load_metrics()["hiperparametros"]
+    lecturas = {
+        "C": "Penalización moderadamente fuerte (C < 1): favorece la generalización "
+             "dado el tamaño de la muestra.",
+        "penalty": "L1 (Lasso): lleva a cero las variables poco informativas, "
+                   "haciendo selección automática de variables.",
+        "solver": "liblinear: el solver que admite penalización L1 en scikit-learn.",
+        "class_weight": "Sin reponderar: el desbalance 58/42 no es lo bastante severo "
+                        "como para requerirlo.",
+    }
+    return data_table(
+        ["Hiperparámetro", "Valor", "Lectura"],
+        [
+            [
+                clave,
+                f"{valor}" if not isinstance(valor, float) else f"{valor:.4f}",
+                lecturas.get(clave, ""),
+            ]
+            for clave, valor in hiperparametros.items()
+        ],
+    )
+
+
 def layout() -> html.Div:
     """Layout de la pestaña de metodología."""
+    metricas = load_metrics()
+    tiempos = metricas["tiempos_segundos"]
+
     return html.Div(
         [
             page_header(
                 "Metodología",
-                "Enfoque cuantitativo, de alcance descriptivo y predictivo, con "
-                "diseño no experimental de corte transversal.",
+                "Del CSV al modelo entrenado, en seis etapas reproducibles con la "
+                "misma semilla que usa el Jupyter Book.",
                 "🧪",
             ),
-            kpi_row(_kpis_metodologia()),
-            section_title("Flujo de trabajo"),
+            kpi_row(_kpis()),
+            section_title("Las seis etapas"),
             dbc.Row(
                 [
                     dbc.Col(
                         card(
                             [
-                                html.Div(
-                                    [
-                                        html.Span(numero, className="etapa-numero"),
-                                        html.Code(archivo, className="etapa-archivo"),
-                                    ],
-                                    className="etapa-head",
-                                ),
+                                html.Div(numero, className="guide-icon"),
                                 html.Div(titulo, className="guide-name"),
                                 html.Div(descripcion, className="guide-text"),
                             ],
                             color=SERIES[i % len(SERIES)],
+                            className="guide-card",
                         ),
                         lg=4,
                         md=6,
                         xs=12,
                         className="mb-3",
                     )
-                    for i, (numero, titulo, archivo, descripcion) in enumerate(ETAPAS)
+                    for i, (numero, titulo, descripcion) in enumerate(ETAPAS)
                 ],
-                className="g-3 mb-4",
+                className="g-3",
             ),
+            section_title("Preprocesamiento"),
+            card(
+                [
+                    paragraph(
+                        "El preprocesamiento vive dentro del pipeline, no antes de él. Esa "
+                        "decisión es la que permite que el formulario de la pestaña de "
+                        "predicción envíe la edad en años y las mutaciones como 0/1, sin "
+                        "replicar a mano ninguna transformación."
+                    ),
+                    _tabla_preprocesamiento(),
+                    callout(
+                        "Se usa el conjunto completo de variables disponibles: la reducción "
+                        "del panel no se hace a mano recortando columnas, sino dejando que "
+                        "la penalización L1 decida cuáles sobreviven. Así la selección "
+                        "queda documentada por el propio modelo.",
+                        titulo="Estrategia de selección de variables",
+                        color=SERIES[2],
+                    ),
+                ],
+                titulo="Qué se le hace a cada variable",
+                color=COLOR_LGG,
+            ),
+            section_title("Hiperparámetros y coste computacional"),
             dbc.Row(
                 [
                     dbc.Col(
                         card(
-                            [
-                                paragraph(
-                                    "El dataset se construye con un modelo logístico "
-                                    "generador: se define un log-odds por empleado a partir "
-                                    "de sus características y se extrae la decisión de "
-                                    "abandono de una distribución de Bernoulli. Esto "
-                                    "garantiza que la relación entre variables y objetivo "
-                                    "sea probabilística, no determinista."
-                                ),
-                                bullet_list(SUPUESTOS_DATOS, color=COLOR_PERMANECE),
-                            ],
-                            titulo="Sobre los datos",
-                            color=COLOR_PERMANECE,
+                            _tabla_hiperparametros(),
+                            titulo="Configuración seleccionada",
+                            subtitulo=f"Mejor combinación de las 52 evaluadas, por AUC-ROC en "
+                                      f"validación cruzada de {CV_FOLDS} particiones",
+                            color=COLOR_GBM,
                         ),
-                        lg=6,
-                        className="mb-3",
+                        lg=8,
+                        className="mb-4",
                     ),
                     dbc.Col(
                         card(
                             [
+                                bullet_list(
+                                    [
+                                        f"Búsqueda de hiperparámetros: {tiempos['busqueda']:.2f} s"
+                                        if tiempos["busqueda"]
+                                        else "Búsqueda de hiperparámetros: no se repitió "
+                                             "(se reutiliza la configuración del libro; "
+                                             "ejecuta train_model.py --buscar para repetirla)",
+                                        f"Entrenamiento final: {tiempos['entrenamiento']:.3f} s",
+                                        f"Inferencia sobre las {metricas['n_test']} "
+                                        f"observaciones de prueba: {tiempos['inferencia']:.4f} s",
+                                    ],
+                                    color=SERIES[3],
+                                ),
                                 paragraph(
-                                    "El pipeline de scikit-learn encapsula preprocesamiento "
-                                    "y modelo en un único objeto. Esa decisión tiene una "
-                                    "consecuencia práctica importante: el archivo .pkl "
-                                    "acepta datos en crudo, así que el formulario de "
-                                    "predicción no necesita replicar el escalado ni la "
-                                    "codificación de categorías."
+                                    "Los tiempos se separan a propósito: permiten comparar "
+                                    "de forma justa este baseline con modelos que no "
+                                    "necesitan una búsqueda exhaustiva."
                                 ),
-                                html.Pre(
-                                    "Pipeline([\n"
-                                    "    ('preprocesamiento', ColumnTransformer([\n"
-                                    "        ('numericas',    StandardScaler(), NUMERIC_FEATURES),\n"
-                                    "        ('categoricas',  OneHotEncoder(drop='first'), ['departamento']),\n"
-                                    "    ])),\n"
-                                    "    ('clasificador', LogisticRegression(\n"
-                                    "        max_iter=1000, class_weight='balanced')),\n"
-                                    "])",
-                                    className="code-block",
-                                ),
-                                callout(
-                                    "El preprocesamiento se ajusta solo con los datos de "
-                                    "entrenamiento. Si se ajustara con todo el dataset habría "
-                                    "fuga de información y las métricas serían optimistas.",
-                                    titulo="Prevención de data leakage",
-                                    color=COLOR_ABANDONA,
+                                enlace_externo(
+                                    "Ver el EDA completo en el libro", URL_LIBRO_EDA
                                 ),
                             ],
-                            titulo="Sobre el modelo",
-                            color=COLOR_ABANDONA,
+                            titulo="Coste computacional",
+                            color=SERIES[3],
                         ),
-                        lg=6,
-                        className="mb-3",
+                        lg=4,
+                        className="mb-4",
                     ),
                 ]
-            ),
-            section_title("Métricas de evaluación"),
-            card(
-                data_table(
-                    ["Métrica", "Fórmula", "Qué mide", "Por qué importa aquí"],
-                    METRICAS_DEF,
-                ),
-                subtitulo="VP: verdaderos positivos · VN: verdaderos negativos · "
-                "FP: falsos positivos · FN: falsos negativos.",
-                color=SERIES[3],
             ),
         ],
         className="tab-content",

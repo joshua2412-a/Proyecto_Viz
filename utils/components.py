@@ -15,8 +15,8 @@ from dash import dcc, html
 
 from utils.theme import (
     BG_SOFT,
-    COLOR_ABANDONA,
-    COLOR_PERMANECE,
+    COLOR_GBM,
+    COLOR_LGG,
     INK_MUTED,
     SERIES,
 )
@@ -43,17 +43,28 @@ def section_title(texto: str, nivel: int = 4) -> html.Div:
     return heading(texto, className="section-title")
 
 
-def paragraph(texto: str) -> html.P:
+def paragraph(texto) -> html.P:
     """Párrafo con el estilo de lectura del dashboard."""
     return html.P(texto, className="body-text")
 
 
-def bullet_list(items: Iterable[str], color: str = COLOR_PERMANECE) -> html.Ul:
+def bullet_list(items: Iterable, color: str = COLOR_LGG) -> html.Ul:
     """Lista con viñetas coloreadas."""
     return html.Ul(
         [html.Li(item, className="body-text") for item in items],
         className="bullet-list",
         style={"--bullet-color": color},
+    )
+
+
+def enlace_externo(texto: str, url: str, icono: str = "↗") -> html.A:
+    """Enlace que abre en una pestaña nueva (libro, dataset, repositorio)."""
+    return html.A(
+        f"{texto} {icono}".strip(),
+        href=url,
+        target="_blank",
+        rel="noopener noreferrer",
+        className="link-externo",
     )
 
 
@@ -83,7 +94,7 @@ def card(
     )
 
 
-def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = COLOR_PERMANECE) -> dbc.Card:
+def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = COLOR_LGG) -> dbc.Card:
     """Tarjeta de indicador: cifra protagonista + etiqueta + detalle opcional."""
     cuerpo = [
         html.Div(etiqueta.upper(), className="kpi-label"),
@@ -109,7 +120,7 @@ def kpi_row(kpis: Sequence[dict], md: int = 3) -> dbc.Row:
     )
 
 
-def callout(texto: str, titulo: str | None = None, color: str = COLOR_ABANDONA) -> html.Div:
+def callout(texto, titulo: str | None = None, color: str = COLOR_GBM) -> html.Div:
     """Bloque destacado para ideas clave o advertencias."""
     hijos = []
     if titulo:
@@ -127,15 +138,11 @@ def callout(texto: str, titulo: str | None = None, color: str = COLOR_ABANDONA) 
 # --------------------------------------------------------------------------- #
 def graph_card(figura, titulo: str, nota: str = "", graph_id: str | None = None) -> dbc.Card:
     """Tarjeta que envuelve un gráfico de Plotly con título y nota al pie."""
-    grafico = dcc.Graph(
-        figure=figura,
-        id=graph_id,
-        config={"displaylogo": False, "responsive": True},
-        className="graph",
-    ) if graph_id else dcc.Graph(
-        figure=figura,
-        config={"displaylogo": False, "responsive": True},
-        className="graph",
+    configuracion = {"displaylogo": False, "responsive": True}
+    grafico = (
+        dcc.Graph(figure=figura, id=graph_id, config=configuracion, className="graph")
+        if graph_id
+        else dcc.Graph(figure=figura, config=configuracion, className="graph")
     )
 
     cuerpo = [html.H5(titulo, className="card-title-custom"), grafico]
@@ -176,11 +183,11 @@ def legend_chip(texto: str, color: str) -> html.Span:
 
 
 def series_chips() -> html.Div:
-    """Leyenda fija Permanece / Abandona para acompañar a los gráficos."""
+    """Leyenda fija LGG / GBM para acompañar a los gráficos."""
     return html.Div(
         [
-            legend_chip("Permanece", COLOR_PERMANECE),
-            legend_chip("Abandona", COLOR_ABANDONA),
+            legend_chip("LGG · glioma de bajo grado", COLOR_LGG),
+            legend_chip("GBM · glioblastoma multiforme", COLOR_GBM),
         ],
         className="legend-chips",
     )

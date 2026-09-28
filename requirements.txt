@@ -1,14 +1,20 @@
-# Dashboard de rotación laboral · dependencias
-# Probado con Python 3.10 y 3.11
+# Dashboard de gliomas (LGG vs GBM) · dependencias
+# Probado con Python 3.11 y 3.12
+#
+# Instalación:  pip install -r requirements.txt
+# El Jupyter Book tiene sus propias dependencias en jbook/requirements.txt.
 
 dash>=2.17,<3.0
 dash-bootstrap-components>=1.6.0
 plotly>=5.22.0
 pandas>=2.0,<3.0
 numpy>=1.24
-scikit-learn>=1.3
+scipy>=1.10
+# <1.8 a propósito: en 1.8 se deprecó el argumento `penalty` de LogisticRegression
+# y el pipeline del notebook lo usa (penalty='l1' + solver='liblinear').
+scikit-learn>=1.3,<1.8
 joblib>=1.3
 
-# Servidor WSGI para despliegue (opcional en desarrollo)
+# Servidor WSGI para despliegue (App Engine usa gunicorn)
 gunicorn>=21.2 ; sys_platform != "win32"
 waitress>=3.0 ; sys_platform == "win32"

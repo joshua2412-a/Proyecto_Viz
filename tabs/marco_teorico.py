@@ -1,7 +1,7 @@
 """
 Pestaña 5 · Marco teórico
-Conceptos, teorías de rotación laboral, fundamento del modelo estadístico y
-tabla de operacionalización de variables.
+Los conceptos que hacen falta para leer el resto del tablero: el panel de
+genes, la regresión logística, el odds ratio y las métricas de evaluación.
 """
 
 from __future__ import annotations
@@ -14,168 +14,133 @@ from utils.components import (
     callout,
     card,
     data_table,
+    enlace_externo,
     page_header,
     paragraph,
     section_title,
 )
-from utils.theme import COLOR_ABANDONA, COLOR_PERMANECE, SERIES
+from utils.config import (
+    GENDER_LABELS,
+    GENE_DESCRIPCION,
+    GENE_FEATURES,
+    RACE_LABELS,
+    URL_LIBRO_MODELO,
+)
+from utils.data_loader import asociacion_con_grado, prevalencia_genes
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
-# --------------------------------------------------------------------------- #
-# Conceptos base
-# --------------------------------------------------------------------------- #
-CONCEPTOS = [
-    (
-        "Rotación laboral",
-        "Movimiento de entrada y salida de personal en una organización durante "
-        "un periodo. Se distingue entre rotación voluntaria (el empleado decide "
-        "irse) e involuntaria (la empresa termina la relación). Este trabajo "
-        "modela la primera, que es la accionable desde la gestión humana.",
-    ),
-    (
-        "Tasa de abandono (attrition rate)",
-        "Proporción de empleados que abandonan respecto al total de la plantilla "
-        "en el periodo analizado. Es el indicador descriptivo de referencia, pero "
-        "por sí solo no permite priorizar casos individuales.",
-    ),
-    (
-        "Satisfacción laboral",
-        "Valoración afectiva que el empleado hace de su trabajo. Es el "
-        "antecedente más estudiado de la intención de renuncia: la literatura "
-        "reporta de forma consistente una relación negativa entre satisfacción "
-        "e intención de salida.",
-    ),
-    (
-        "Intención de rotación",
-        "Probabilidad autodeclarada de dejar la organización. Actúa como variable "
-        "mediadora entre la satisfacción y el abandono efectivo, y es el "
-        "constructo que este modelo aproxima con datos observables.",
-    ),
-]
+AMBITO = "train"
 
-TEORIAS = [
-    (
-        "Teoría de los dos factores (Herzberg, 1959)",
-        "Separa factores higiénicos (salario, condiciones, carga de trabajo), cuya "
-        "ausencia genera insatisfacción, de factores motivacionales (reconocimiento, "
-        "crecimiento, logro), que generan satisfacción. En el modelo, el salario y "
-        "las horas trabajadas representan los primeros; las promociones, los segundos.",
-    ),
-    (
-        "Modelo de vínculos de March y Simon (1958)",
-        "El empleado permanece mientras el equilibrio entre lo que aporta y lo que "
-        "recibe le resulte favorable frente a sus alternativas externas. Justifica "
-        "incluir el salario relativo y la antigüedad como variables predictoras.",
-    ),
-    (
-        "Embeddedness organizacional (Mitchell et al., 2001)",
-        "Cuanto más arraigado está alguien —vínculos, ajuste al puesto, coste de "
-        "salir— menor es su probabilidad de irse. La antigüedad y las promociones "
-        "operan como indicadores indirectos de ese arraigo.",
-    ),
-    (
-        "Modelo de demandas y recursos laborales (JD-R, 2001)",
-        "Demandas sostenidas sin recursos que las compensen producen desgaste y, "
-        "finalmente, salida. Las horas trabajadas por semana son el indicador de "
-        "demanda dentro de este modelo.",
-    ),
-]
-
-# --------------------------------------------------------------------------- #
-# Tabla de operacionalización de variables
-# --------------------------------------------------------------------------- #
-ENCABEZADOS_OPERACIONALIZACION = [
-    "Variable",
-    "Tipo",
-    "Definición operacional",
-    "Escala de medida",
-    "Rango / categorías",
-    "Indicador",
-    "Rol en el modelo",
-]
-
-OPERACIONALIZACION = [
-    [
-        "edad",
-        "Cuantitativa continua",
-        "Años cumplidos del empleado en la fecha de corte del análisis.",
-        "Razón",
-        "21 – 60 años",
-        "Fecha de nacimiento registrada en nómina",
-        "Independiente",
-    ],
-    [
-        "salario",
-        "Cuantitativa continua",
-        "Remuneración mensual bruta pactada en el contrato.",
-        "Razón",
-        "1.5M – 18M COP",
-        "Valor de nómina mensual",
-        "Independiente",
-    ],
-    [
-        "anios_empresa",
-        "Cuantitativa discreta",
-        "Años completos transcurridos desde la fecha de vinculación.",
-        "Razón",
-        "0 – 35 años",
-        "Antigüedad contractual",
-        "Independiente",
-    ],
-    [
-        "departamento",
-        "Cualitativa nominal",
-        "Área funcional a la que está adscrito el cargo.",
-        "Nominal",
-        "7 categorías (Ventas, Tecnología, Operaciones, Soporte, Marketing, "
-        "Finanzas, Recursos Humanos)",
-        "Estructura organizacional vigente",
-        "Independiente (one-hot)",
-    ],
-    [
-        "satisfaccion",
-        "Cuantitativa continua",
-        "Nivel de satisfacción laboral autodeclarado en la encuesta de clima.",
-        "Intervalo (escala tipo Likert)",
-        "1.0 (muy insatisfecho) – 5.0 (muy satisfecho)",
-        "Promedio de ítems de la encuesta de clima",
-        "Independiente",
-    ],
-    [
-        "horas_trabajadas",
-        "Cuantitativa discreta",
-        "Promedio de horas efectivamente trabajadas por semana.",
-        "Razón",
-        "35 – 70 horas",
-        "Registro de marcación / control horario",
-        "Independiente",
-    ],
-    [
-        "promociones",
-        "Cuantitativa discreta",
-        "Número de ascensos o cambios de nivel obtenidos en la empresa.",
-        "Razón",
-        "0 – 6 promociones",
-        "Historial de movimientos de cargo",
-        "Independiente",
-    ],
-    [
-        "abandono",
-        "Cualitativa dicotómica",
-        "Indica si el empleado dejó la organización durante el periodo observado.",
-        "Nominal binaria",
-        "1 = abandonó · 0 = permanece",
-        "Novedad de retiro en nómina",
-        "Dependiente (objetivo)",
-    ],
-]
-
-# Fórmula de la regresión logística en LaTeX (renderizada con dcc.Markdown)
-FORMULA = r"""
-$$P(\text{abandono}=1 \mid X) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + \beta_2 x_2 + \dots + \beta_k x_k)}}$$
-
-$$\ln\left(\frac{p}{1-p}\right) = \beta_0 + \sum_{j=1}^{k} \beta_j x_j
-\qquad\qquad OR_j = e^{\beta_j}$$
+# Fórmulas en LaTeX (dcc.Markdown con mathjax=True las renderiza)
+FORMULA_LOGISTICA = r"""
+$$
+P(\text{GBM} \mid \mathbf{x}) \;=\; \sigma\!\left(\mathbf{w}^{\top}\mathbf{x} + b\right)
+\;=\; \frac{1}{1 + e^{-(\mathbf{w}^{\top}\mathbf{x} + b)}}
+$$
 """
+
+FORMULA_ODDS = r"""
+$$
+\text{odds ratio}_i \;=\; e^{w_i}
+\qquad\text{y}\qquad
+\log\frac{P(\text{GBM})}{1 - P(\text{GBM})} \;=\; b + \sum_i w_i x_i
+$$
+"""
+
+METRICAS = [
+    (
+        "Accuracy",
+        "Proporción de pacientes clasificados correctamente.",
+        "Fácil de comunicar, pero insuficiente sola: con clases desbalanceadas "
+        "premia acertar en la clase mayoritaria.",
+    ),
+    (
+        "Precisión (GBM)",
+        "De los pacientes que el modelo marca como GBM, cuántos lo son de verdad.",
+        "Baja precisión significa enviar a revisión casos que no lo necesitaban.",
+    ),
+    (
+        "Recall / sensibilidad (GBM)",
+        "De los pacientes que realmente tienen GBM, cuántos detecta el modelo.",
+        "La métrica crítica de este problema: un GBM no detectado es el error más "
+        "costoso clínicamente.",
+    ),
+    (
+        "F1-score (GBM)",
+        "Media armónica entre precisión y recall.",
+        "Resume el equilibrio entre los dos tipos de error en una sola cifra.",
+    ),
+    (
+        "AUC-ROC",
+        "Probabilidad de que el modelo asigne mayor riesgo a un GBM que a un LGG "
+        "tomados al azar.",
+        "Independiente del umbral de decisión y robusta al desbalance: es la métrica "
+        "con la que se seleccionaron los hiperparámetros.",
+    ),
+]
+
+
+def _tabla_variables() -> dbc.Table:
+    """Operacionalización de las variables del dataset."""
+    return data_table(
+        ["Variable", "Tipo", "Codificación", "Papel en el modelo"],
+        [
+            [
+                "Grade",
+                "Binaria",
+                "0 = LGG · 1 = GBM",
+                "Variable objetivo",
+            ],
+            [
+                "Age_at_diagnosis",
+                "Continua (años)",
+                "Decimales incluidos: recogen los días exactos",
+                "Predictora · estandarizada con StandardScaler",
+            ],
+            [
+                "Gender",
+                "Binaria",
+                " · ".join(f"{clave} = {valor}" for clave, valor in GENDER_LABELS.items()),
+                "Predictora · one-hot (drop='if_binary')",
+            ],
+            [
+                "Race",
+                "Categórica (4 niveles)",
+                " · ".join(f"{clave} = {valor}" for clave, valor in RACE_LABELS.items()),
+                "Predictora · one-hot",
+            ],
+            [
+                f"{len(GENE_FEATURES)} genes",
+                "Binarias",
+                "0 = no mutado (wildtype) · 1 = mutado",
+                "Predictoras · passthrough (ya son indicadores)",
+            ],
+        ],
+    )
+
+
+def _tabla_genes() -> dbc.Table:
+    """Panel de genes con su función biológica y su prevalencia observada."""
+    prevalencia = prevalencia_genes(AMBITO).set_index("gen")
+    asociacion = asociacion_con_grado(AMBITO).set_index("variable")
+
+    filas = []
+    for gen in prevalencia.index:  # ya viene ordenado por prevalencia
+        fila_prev = prevalencia.loc[gen]
+        rho = asociacion.loc[gen, "rho"]
+        hacia = "LGG" if rho < 0 else "GBM"
+        marca = "" if asociacion.loc[gen, "significativa"] else " (no significativa)"
+        filas.append(
+            [
+                gen,
+                GENE_DESCRIPCION.get(gen, ""),
+                f"{fila_prev['prevalencia']:.1f}%",
+                f"{rho:+.2f} → {hacia}{marca}",
+            ]
+        )
+    return data_table(
+        ["Gen", "Función biológica", "Prevalencia", "Asociación con el grado"], filas
+    )
 
 
 def layout() -> html.Div:
@@ -184,111 +149,141 @@ def layout() -> html.Div:
         [
             page_header(
                 "Marco teórico",
-                "Conceptos, teorías de referencia y traducción de cada constructo "
-                "a una variable medible.",
+                "Qué mide cada variable, cómo funciona el modelo y cómo se "
+                "interpretan sus resultados.",
                 "📚",
             ),
-            section_title("Conceptos clave"),
-            dbc.Row(
+            section_title("Operacionalización de las variables"),
+            card(
                 [
-                    dbc.Col(
-                        card(
-                            paragraph(definicion),
-                            titulo=concepto,
-                            color=SERIES[i % len(SERIES)],
-                        ),
-                        lg=6,
-                        className="mb-3",
-                    )
-                    for i, (concepto, definicion) in enumerate(CONCEPTOS)
+                    paragraph(
+                        "El dataset llega ya codificado numéricamente. Conocer esa "
+                        "codificación es imprescindible para leer los coeficientes: un "
+                        "coeficiente positivo en Gender no significa 'ser hombre aumenta "
+                        "el riesgo', sino que la categoría codificada como 1 (femenino) lo "
+                        "hace respecto a la de referencia."
+                    ),
+                    _tabla_variables(),
                 ],
-                className="g-3 mb-4",
+                titulo="Las 23 predictoras y la variable objetivo",
+                color=COLOR_LGG,
             ),
-            section_title("Teorías de referencia"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        card(
-                            paragraph(descripcion),
-                            titulo=teoria,
-                            color=SERIES[(i + 2) % len(SERIES)],
-                        ),
-                        lg=6,
-                        className="mb-3",
-                    )
-                    for i, (teoria, descripcion) in enumerate(TEORIAS)
-                ],
-                className="g-3 mb-4",
-            ),
-            section_title("Fundamento estadístico: regresión logística"),
+            section_title("El modelo: regresión logística"),
             dbc.Row(
                 [
                     dbc.Col(
                         card(
                             [
                                 paragraph(
-                                    "La variable dependiente es dicotómica, por lo que la "
-                                    "regresión lineal no aplica: produciría probabilidades "
-                                    "fuera del intervalo [0, 1] y violaría el supuesto de "
-                                    "homocedasticidad. La regresión logística resuelve el "
-                                    "problema modelando el logaritmo de las odds como una "
-                                    "combinación lineal de los predictores."
+                                    "Dado un vector de características, el modelo estima la "
+                                    "probabilidad de que el paciente pertenezca a la clase "
+                                    "GBM aplicando la función logística (sigmoide) a una "
+                                    "combinación lineal de las predictoras:"
                                 ),
                                 dcc.Markdown(
-                                    FORMULA,
+                                    FORMULA_LOGISTICA,
                                     mathjax=True,
                                     className="formula-block",
                                 ),
                                 paragraph(
-                                    "Al exponenciar un coeficiente se obtiene su razón de "
-                                    "odds (OR): un OR mayor que 1 indica que la variable "
-                                    "incrementa las probabilidades de abandono, y menor que "
-                                    "1, que las reduce, manteniendo el resto constante."
+                                    "Se eligió como modelo de referencia por cuatro razones, "
+                                    "todas ellas explícitas en el libro:"
+                                ),
+                                bullet_list(
+                                    [
+                                        "Interpretabilidad: sus coeficientes se traducen "
+                                        "directamente en odds ratios, el estándar de facto "
+                                        "en la literatura de oncología genómica.",
+                                        "Simplicidad y bajo costo computacional: "
+                                        "entrenamiento e inferencia casi inmediatos.",
+                                        "Robustez con pocas muestras: bajo riesgo de "
+                                        "sobreajuste con 671 pacientes y 23 predictoras.",
+                                        "Comparabilidad: es el modelo base reportado en la "
+                                        "mayoría de estudios de clasificación de grado en "
+                                        "gliomas.",
+                                    ],
+                                    color=COLOR_LGG,
                                 ),
                             ],
-                            titulo="Especificación del modelo",
-                            color=COLOR_PERMANECE,
+                            titulo="Formulación",
+                            color=COLOR_LGG,
                         ),
-                        lg=7,
-                        className="mb-3",
+                        lg=6,
+                        className="mb-4",
                     ),
                     dbc.Col(
                         card(
                             [
+                                paragraph(
+                                    "Cada coeficiente indica cómo influye su variable en la "
+                                    "probabilidad estimada de GBM. Su exponencial es el "
+                                    "odds ratio: por cuánto se multiplican las "
+                                    "probabilidades de GBM al aumentar esa variable en una "
+                                    "unidad (o, en las binarias, al pasar de 0 a 1)."
+                                ),
+                                dcc.Markdown(
+                                    FORMULA_ODDS,
+                                    mathjax=True,
+                                    className="formula-block",
+                                ),
                                 bullet_list(
                                     [
-                                        "Independencia de las observaciones.",
-                                        "Relación lineal entre los predictores y el logit.",
-                                        "Ausencia de multicolinealidad severa.",
-                                        "Tamaño de muestra suficiente por categoría.",
-                                        "Ausencia de valores atípicos con alta influencia.",
+                                        "Coeficiente positivo (OR > 1): la variable empuja "
+                                        "la predicción hacia GBM.",
+                                        "Coeficiente negativo (OR < 1): la empuja hacia LGG.",
+                                        "OR = 2,0 duplica las chances de GBM; OR = 0,5 las "
+                                        "reduce a la mitad.",
                                     ],
-                                    color=COLOR_ABANDONA,
+                                    color=COLOR_GBM,
                                 ),
                                 callout(
-                                    "Se eligió regresión logística por encima de modelos de "
-                                    "mayor capacidad (bosques aleatorios, gradient boosting) "
-                                    "porque en gestión humana la explicabilidad de la decisión "
-                                    "es un requisito, no una preferencia.",
-                                    titulo="Criterio de selección",
-                                    color=COLOR_ABANDONA,
+                                    "La penalización L1 (Lasso) lleva a cero los "
+                                    "coeficientes de las variables poco informativas: hace "
+                                    "selección de variables dentro del propio ajuste. Por "
+                                    "eso el modelo final usa muchas menos variables de las "
+                                    "que recibe.",
+                                    titulo="Por qué L1",
+                                    color=SERIES[3],
                                 ),
                             ],
-                            titulo="Supuestos del modelo",
-                            color=COLOR_ABANDONA,
+                            titulo="Odds ratio: cómo se lee un coeficiente",
+                            color=COLOR_GBM,
                         ),
-                        lg=5,
-                        className="mb-3",
+                        lg=6,
+                        className="mb-4",
                     ),
                 ]
             ),
-            section_title("Operacionalización de variables"),
+            section_title("Métricas de evaluación"),
             card(
-                data_table(ENCABEZADOS_OPERACIONALIZACION, OPERACIONALIZACION),
-                subtitulo=(
-                    "Cada constructo teórico se traduce a una variable observable, "
-                    "con su escala de medida, rango e indicador de recolección."
+                data_table(
+                    ["Métrica", "Qué mide", "Por qué importa aquí"],
+                    [[nombre, definicion, motivo] for nombre, definicion, motivo in METRICAS],
                 ),
+                titulo="Qué se reporta y por qué",
+                subtitulo="Las cinco métricas que aparecen en la pestaña de resultados",
+                color=SERIES[2],
+            ),
+            section_title("El panel de genes"),
+            card(
+                [
+                    paragraph(
+                        "Los 20 genes del panel son los de mayor frecuencia de mutación en "
+                        "los proyectos TCGA-LGG y TCGA-GBM. La prevalencia y la asociación "
+                        "se calculan sobre el conjunto de entrenamiento, así que cambian "
+                        "solas si se reemplaza el dataset."
+                    ),
+                    _tabla_genes(),
+                    html.Div(
+                        enlace_externo(
+                            "Ver el desarrollo completo del modelo en el libro",
+                            URL_LIBRO_MODELO,
+                        ),
+                        className="mt-3",
+                    ),
+                ],
+                titulo="Función biológica, prevalencia y dirección de cada gen",
+                subtitulo="Ordenado por prevalencia de mutación en la cohorte de entrenamiento",
                 color=SERIES[3],
             ),
         ],

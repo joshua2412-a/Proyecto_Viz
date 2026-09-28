@@ -1,6 +1,7 @@
 """
 Pestaña 1 · Introducción
-Presenta el problema de la rotación laboral y la guía de lectura del dashboard.
+Presenta el problema de la clasificación del grado tumoral en gliomas y la
+guía de lectura del dashboard.
 
 Cada pestaña expone una única función pública `layout()` y es totalmente
 autónoma: no importa nada de las demás pestañas.
@@ -15,60 +16,61 @@ from utils.components import (
     bullet_list,
     callout,
     card,
+    enlace_externo,
     kpi_row,
     page_header,
     paragraph,
     section_title,
 )
-from utils.data_loader import get_dataframe, load_metrics, tasa_por_departamento
-from utils.theme import COLOR_ABANDONA, COLOR_PERMANECE, SERIES
+from utils.config import URL_DATASET, URL_LIBRO
+from utils.data_loader import load_metrics, tamanos_particion
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 # Guía de navegación: (icono, pestaña, qué encontrará el usuario)
 GUIA = [
-    ("📘", "Introducción", "Qué es la rotación laboral y cómo leer este tablero."),
-    ("🏢", "Contexto", "Por qué le cuesta dinero a la organización."),
-    ("❗", "Problema", "Dónde se concentra el abandono dentro de la empresa."),
-    ("🎯", "Objetivos", "Qué se propone resolver el proyecto y por qué importa."),
-    ("📚", "Marco teórico", "Conceptos, antecedentes y operacionalización de variables."),
-    ("🧪", "Metodología", "Cómo se construyeron los datos y el modelo."),
+    ("📘", "Introducción", "Qué se clasifica aquí y cómo leer este tablero."),
+    ("🧬", "Contexto clínico", "Qué son LGG y GBM y por qué importa distinguirlos."),
+    ("❗", "Problema", "El coste de la secuenciación completa como cuello de botella."),
+    ("🎯", "Objetivos", "Qué se propone resolver el proyecto y con qué criterio."),
+    ("📚", "Marco teórico", "Genes del panel, regresión logística y odds ratios."),
+    ("🧪", "Metodología", "Partición, preprocesamiento y búsqueda de hiperparámetros."),
     ("📊", "Resultados", "Análisis exploratorio y desempeño del clasificador."),
-    ("🔮", "Predicción", "Simulador interactivo de riesgo individual."),
+    ("🔮", "Predicción", "Simulador: perfil clínico-molecular de un paciente."),
     ("⚠️", "Limitaciones", "Qué NO se puede concluir con este trabajo."),
-    ("✅", "Conclusiones", "Hallazgos y recomendaciones accionables."),
+    ("✅", "Conclusiones", "Hallazgos y siguiente paso del proyecto."),
+    ("📖", "Documentación", "El Jupyter Book con el análisis completo."),
 ]
 
 
 def _kpis() -> list[dict]:
-    """Indicadores de portada calculados a partir del dataset y las métricas."""
-    df = get_dataframe()
-    resumen = tasa_por_departamento()
+    """Indicadores de portada calculados a partir de los datos y las métricas."""
     metricas = load_metrics()
-    critico = resumen.iloc[0]
+    tamanos = tamanos_particion()
 
     return [
         {
-            "valor": f"{len(df):,}",
-            "etiqueta": "Empleados analizados",
-            "detalle": "Registros del dataset simulado",
+            "valor": f"{tamanos['full']}",
+            "etiqueta": "Pacientes analizados",
+            "detalle": f"{tamanos['train']} entrenamiento · {tamanos['test']} prueba",
             "color": SERIES[0],
         },
         {
-            "valor": f"{df['abandono'].mean():.1%}",
-            "etiqueta": "Tasa de abandono",
-            "detalle": f"{int(df['abandono'].sum()):,} salidas registradas",
+            "valor": f"{metricas['prevalencia_gbm']:.1%}",
+            "etiqueta": "Casos de GBM",
+            "detalle": "El resto son gliomas de bajo grado (LGG)",
             "color": SERIES[1],
         },
         {
-            "valor": critico["departamento"],
-            "etiqueta": "Área más crítica",
-            "detalle": f"{critico['tasa']:.1%} de abandono",
-            "color": SERIES[3],
+            "valor": f"{metricas['roc_auc']:.3f}",
+            "etiqueta": "AUC-ROC en prueba",
+            "detalle": f"Accuracy {metricas['accuracy']:.1%} · Recall GBM {metricas['recall']:.1%}",
+            "color": SERIES[2],
         },
         {
-            "valor": f"{metricas['roc_auc']:.3f}",
-            "etiqueta": "AUC del modelo",
-            "detalle": "Regresión logística sobre datos de prueba",
-            "color": SERIES[2],
+            "valor": f"{metricas['n_variables_activas']} de {metricas['n_columnas_modelo']}",
+            "etiqueta": "Columnas activas",
+            "detalle": "La penalización L1 deja el resto en cero",
+            "color": SERIES[3],
         },
     ]
 
@@ -78,9 +80,9 @@ def layout() -> html.Div:
     return html.Div(
         [
             page_header(
-                "Rotación laboral: entender por qué se va el talento",
-                "Tablero analítico de employee attrition construido con Dash, "
-                "Plotly y un modelo de regresión logística.",
+                "Gliomas: distinguir LGG de GBM sin secuenciar de más",
+                "Tablero analítico sobre 839 pacientes de los proyectos TCGA-LGG y "
+                "TCGA-GBM, con un clasificador de regresión logística.",
                 "📘",
             ),
             kpi_row(_kpis()),
@@ -90,32 +92,31 @@ def layout() -> html.Div:
                         card(
                             [
                                 paragraph(
-                                    "La rotación laboral (o employee attrition) es la salida "
-                                    "de empleados de una organización durante un periodo "
-                                    "determinado. Cuando esa salida es voluntaria y afecta a "
-                                    "perfiles con experiencia, deja de ser un indicador de "
-                                    "recursos humanos y se convierte en un problema "
-                                    "estratégico: la empresa pierde conocimiento, continuidad "
-                                    "en la relación con el cliente y capacidad de ejecución."
+                                    "Los gliomas son el tumor cerebral primario más común "
+                                    "en adultos y se clasifican principalmente en gliomas "
+                                    "de bajo grado (LGG) y glioblastoma multiforme (GBM). "
+                                    "La diferencia no es de matiz: cambia el pronóstico, la "
+                                    "agresividad del tratamiento y el seguimiento."
                                 ),
                                 paragraph(
-                                    "El problema no es que exista rotación —siempre existe—, "
-                                    "sino que la organización la descubra tarde. Cuando la "
-                                    "carta de renuncia llega ya no hay nada que negociar. La "
-                                    "pregunta útil no es cuántos se fueron el año pasado, sino "
-                                    "quién tiene hoy un riesgo alto de irse y qué factores "
-                                    "están empujando esa decisión."
+                                    "Los criterios histológicos e imagenológicos han sido la "
+                                    "base del diagnóstico, pero la caracterización "
+                                    "biomolecular se ha vuelto imprescindible para decidir "
+                                    "el tratamiento idóneo. El problema es que la "
+                                    "secuenciación genética completa tiene un coste elevado "
+                                    "para los sistemas de salud y para los pacientes."
                                 ),
                                 paragraph(
-                                    "Este proyecto responde a esa pregunta con dos piezas: un "
-                                    "análisis descriptivo que localiza dónde se concentra el "
-                                    "abandono y un modelo de clasificación que estima la "
-                                    "probabilidad de salida de un empleado concreto a partir "
-                                    "de siete variables observables."
+                                    "Este proyecto aborda ese desafío con dos piezas: un "
+                                    "análisis exploratorio que identifica qué variables "
+                                    "clínicas y qué mutaciones separan realmente a los dos "
+                                    "grupos, y un modelo de clasificación que estima la "
+                                    "probabilidad de GBM a partir de ese subconjunto "
+                                    "reducido de marcadores."
                                 ),
                             ],
                             titulo="El problema en una página",
-                            color=COLOR_PERMANECE,
+                            color=COLOR_LGG,
                         ),
                         lg=7,
                         className="mb-4",
@@ -124,32 +125,73 @@ def layout() -> html.Div:
                         [
                             card(
                                 [
-                                    paragraph(
-                                        "El tablero se apoya en siete variables recogidas "
-                                        "habitualmente por cualquier área de gestión humana:"
-                                    ),
                                     bullet_list(
                                         [
-                                            "Edad del empleado",
-                                            "Salario mensual",
-                                            "Antigüedad en la empresa",
-                                            "Departamento al que pertenece",
-                                            "Satisfacción laboral (escala 1 a 5)",
-                                            "Horas trabajadas por semana",
-                                            "Promociones recibidas",
+                                            html.Span(
+                                                [
+                                                    html.B("Nombre: "),
+                                                    "Glioma Grading Clinical and Mutation "
+                                                    "Features",
+                                                ]
+                                            ),
+                                            html.Span(
+                                                [
+                                                    html.B("Fuente: "),
+                                                    enlace_externo(
+                                                        "UCI Machine Learning Repository",
+                                                        URL_DATASET,
+                                                    ),
+                                                ]
+                                            ),
+                                            html.Span([html.B("Muestra: "), "839 pacientes"]),
+                                            html.Span(
+                                                [
+                                                    html.B("Atributos: "),
+                                                    "23 (20 genes con alta frecuencia de "
+                                                    "mutación y 3 variables clínicas)",
+                                                ]
+                                            ),
+                                            html.Span(
+                                                [
+                                                    html.B("Objetivo: "),
+                                                    "clasificación binaria LGG vs GBM",
+                                                ]
+                                            ),
+                                            html.Span(
+                                                [
+                                                    html.B("Naturaleza: "),
+                                                    "tabular, multivariada (numérica y "
+                                                    "categórica), sin valores faltantes",
+                                                ]
+                                            ),
                                         ],
-                                        color=COLOR_PERMANECE,
+                                        color=COLOR_LGG,
                                     ),
                                     callout(
-                                        "La variable objetivo es binaria: 1 si el empleado "
-                                        "abandonó la organización, 0 si permanece.",
+                                        "La variable objetivo es binaria: 1 si el paciente "
+                                        "presenta glioblastoma multiforme (GBM), 0 si el "
+                                        "glioma es de bajo grado (LGG).",
                                         titulo="Variable a predecir",
-                                        color=COLOR_ABANDONA,
+                                        color=COLOR_GBM,
                                     ),
                                 ],
-                                titulo="Qué se observa de cada empleado",
+                                titulo="Ficha técnica del dataset",
                                 color=SERIES[3],
-                            )
+                            ),
+                            card(
+                                [
+                                    paragraph(
+                                        "Este tablero es la cara interactiva del análisis. "
+                                        "El desarrollo estadístico completo —pruebas de "
+                                        "hipótesis, supuestos, búsqueda de hiperparámetros— "
+                                        "vive en el Jupyter Book del proyecto."
+                                    ),
+                                    enlace_externo("Abrir el Jupyter Book", URL_LIBRO),
+                                ],
+                                titulo="Documentación del proyecto",
+                                color=SERIES[2],
+                                className="mt-3",
+                            ),
                         ],
                         lg=5,
                         className="mb-4",

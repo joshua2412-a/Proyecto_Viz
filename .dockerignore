@@ -1,0 +1,30 @@
+# Archivos que NO entran en la imagen Docker.
+# Sin esto, la fuente del Jupyter Book (unos 2,5 MB de notebooks con salidas)
+# y las cachés locales viajarían dentro del contenedor sin ninguna utilidad.
+
+.git/
+.gitignore
+.dockerignore
+
+# Entornos y cachés
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Fuente y build del Jupyter Book: se publica aparte en GitHub Pages
+jbook/
+scripts/
+
+# Configuración de despliegue que no usa el contenedor
+app.yaml
+.gcloudignore
+
+# Editores, sistema operativo y documentación
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+README.md

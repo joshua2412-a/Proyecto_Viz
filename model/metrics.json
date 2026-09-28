@@ -1,0 +1,245 @@
+{
+  "modelo": "Regresión logística (baseline del Jupyter Book)",
+  "hiperparametros": {
+    "C": 0.316228,
+    "penalty": "l1",
+    "solver": "liblinear",
+    "class_weight": null
+  },
+  "accuracy": 0.869,
+  "precision": 0.7927,
+  "recall": 0.9286,
+  "f1": 0.8553,
+  "roc_auc": 0.9159,
+  "cv_auc_media": 0.9171,
+  "cv_auc_desviacion": 0.0155,
+  "matriz_confusion": [
+    [
+      81,
+      17
+    ],
+    [
+      5,
+      65
+    ]
+  ],
+  "roc_curve": {
+    "fpr": [
+      0.0,
+      0.0,
+      0.0,
+      0.0102,
+      0.0102,
+      0.0306,
+      0.0306,
+      0.0408,
+      0.0408,
+      0.051,
+      0.051,
+      0.0612,
+      0.0612,
+      0.0816,
+      0.0816,
+      0.1122,
+      0.1122,
+      0.1429,
+      0.1429,
+      0.1531,
+      0.1531,
+      0.1735,
+      0.1735,
+      0.2551,
+      0.2551,
+      0.3571,
+      0.3571,
+      0.4286,
+      0.4286,
+      0.7041,
+      0.7041,
+      0.8878,
+      0.9082,
+      1.0
+    ],
+    "tpr": [
+      0.0,
+      0.0143,
+      0.1143,
+      0.1143,
+      0.2714,
+      0.2714,
+      0.4714,
+      0.4714,
+      0.5571,
+      0.5571,
+      0.5714,
+      0.5714,
+      0.6143,
+      0.6143,
+      0.6857,
+      0.6857,
+      0.7,
+      0.7,
+      0.7571,
+      0.7571,
+      0.9143,
+      0.9143,
+      0.9429,
+      0.9429,
+      0.9571,
+      0.9571,
+      0.9714,
+      0.9714,
+      0.9857,
+      0.9857,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "coeficientes": [
+    {
+      "variable": "IDH1",
+      "coeficiente": -3.388,
+      "odds_ratio": 0.0338
+    },
+    {
+      "variable": "IDH2",
+      "coeficiente": -1.3415,
+      "odds_ratio": 0.2615
+    },
+    {
+      "variable": "TP53",
+      "coeficiente": 0.949,
+      "odds_ratio": 2.5832
+    },
+    {
+      "variable": "Age_at_diagnosis",
+      "coeficiente": 0.6696,
+      "odds_ratio": 1.9534
+    },
+    {
+      "variable": "PTEN",
+      "coeficiente": 0.4918,
+      "odds_ratio": 1.6352
+    },
+    {
+      "variable": "NF1",
+      "coeficiente": -0.3708,
+      "odds_ratio": 0.6902
+    },
+    {
+      "variable": "CIC",
+      "coeficiente": -0.2881,
+      "odds_ratio": 0.7497
+    },
+    {
+      "variable": "PIK3R1",
+      "coeficiente": 0.2507,
+      "odds_ratio": 1.2849
+    },
+    {
+      "variable": "NOTCH1",
+      "coeficiente": -0.139,
+      "odds_ratio": 0.8702
+    },
+    {
+      "variable": "MUC16",
+      "coeficiente": 0.1033,
+      "odds_ratio": 1.1088
+    },
+    {
+      "variable": "EGFR",
+      "coeficiente": -0.0541,
+      "odds_ratio": 0.9474
+    },
+    {
+      "variable": "Race_1",
+      "coeficiente": 0.0084,
+      "odds_ratio": 1.0084
+    },
+    {
+      "variable": "Gender_1",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "Race_0",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "Race_2",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "Race_3",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "ATRX",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "PIK3CA",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "FUBP1",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "RB1",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "BCOR",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "CSMD3",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "SMARCA4",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "GRIN2A",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "FAT4",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    },
+    {
+      "variable": "PDGFRA",
+      "coeficiente": 0.0,
+      "odds_ratio": 1.0
+    }
+  ],
+  "intercepto": 0.532,
+  "n_variables_originales": 23,
+  "n_columnas_modelo": 26,
+  "n_variables_activas": 12,
+  "n_total": 839,
+  "n_train": 671,
+  "n_test": 168,
+  "prevalencia_gbm": 0.4195,
+  "tiempos_segundos": {
+    "busqueda": 0.0,
+    "entrenamiento": 0.018,
+    "inferencia": 0.01469
+  }
+}

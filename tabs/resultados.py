@@ -1,15 +1,13 @@
 """
 Pestaña 7 · Resultados
-Dos bloques: análisis exploratorio de los datos (EDA) y evaluación del modelo.
-
-Contiene un callback propio para el explorador de distribuciones. El callback
-se registra con el decorador global `@callback`, de modo que la pestaña no
-necesita recibir la instancia de la app: sigue estando desacoplada de app.py.
+Dos bloques: el análisis exploratorio (con selector de conjunto de datos) y el
+desempeño del clasificador sobre el conjunto de prueba reservado.
 """
 
 from __future__ import annotations
 
 import dash_bootstrap_components as dbc
+import numpy as np
 from dash import Input, Output, callback, dcc, html
 
 from utils.components import (
@@ -24,349 +22,222 @@ from utils.components import (
     section_title,
     series_chips,
 )
-from utils.config import LABELS, NUMERIC_FEATURES
-from utils.data_loader import get_dataframe, load_metrics
+from utils.data_loader import (
+    AMBITO_NOMBRES,
+    asociacion_con_grado,
+    load_metrics,
+    prueba_edad_por_grado,
+    tamanos_particion,
+)
 from utils.figures import (
-    fig_abandono_departamento,
-    fig_boxplot,
-    fig_correlacion,
-    fig_correlacion_objetivo,
-    fig_dona_abandono,
-    fig_histograma,
-    fig_importancias,
+    fig_asociacion_grado,
+    fig_boxplot_edad,
+    fig_clinica_por_grado,
+    fig_coeficientes,
+    fig_distribucion_grado,
+    fig_edad_por_grado,
     fig_matriz_confusion,
+    fig_matriz_genes,
+    fig_prevalencia_genes,
     fig_roc,
 )
-from utils.theme import COLOR_ABANDONA, COLOR_PERMANECE, SERIES
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
-# Identificadores de los controles de esta pestaña (prefijo para evitar choques)
-ID_VARIABLE = "res-hist-variable"
-ID_TIPO = "res-hist-tipo"
-ID_GRAFICO = "res-hist-grafico"
+ID_AMBITO = "res-ambito"
+ID_EDA = "res-eda"
 
 
-# --------------------------------------------------------------------------- #
-# Bloque 1 · Análisis exploratorio
-# --------------------------------------------------------------------------- #
-def _kpis_eda() -> list[dict]:
-    """Indicadores descriptivos de la plantilla."""
-    df = get_dataframe()
-    sale = df[df["abandono"] == 1]
-    queda = df[df["abandono"] == 0]
+def _kpis() -> list[dict]:
+    """Métricas de desempeño del modelo sobre el conjunto de prueba."""
+    metricas = load_metrics()
     return [
         {
-            "valor": f"{df['satisfaccion'].mean():.2f}",
-            "etiqueta": "Satisfacción promedio",
-            "detalle": f"Abandona {sale['satisfaccion'].mean():.2f} · "
-            f"Permanece {queda['satisfaccion'].mean():.2f}",
+            "valor": f"{metricas['roc_auc']:.3f}",
+            "etiqueta": "AUC-ROC",
+            "detalle": f"CV {metricas['cv_auc_media']:.3f} ± {metricas['cv_auc_desviacion']:.3f}",
             "color": SERIES[0],
         },
         {
-            "valor": f"{df['horas_trabajadas'].mean():.1f} h",
-            "etiqueta": "Horas semanales promedio",
-            "detalle": f"Abandona {sale['horas_trabajadas'].mean():.1f} h · "
-            f"Permanece {queda['horas_trabajadas'].mean():.1f} h",
-            "color": SERIES[1],
-        },
-        {
-            "valor": f"${df['salario'].mean() / 1_000_000:,.2f}M",
-            "etiqueta": "Salario promedio",
-            "detalle": f"Abandona ${sale['salario'].mean() / 1_000_000:,.2f}M · "
-            f"Permanece ${queda['salario'].mean() / 1_000_000:,.2f}M",
+            "valor": f"{metricas['accuracy']:.1%}",
+            "etiqueta": "Accuracy",
+            "detalle": f"{metricas['n_test']} pacientes de prueba",
             "color": SERIES[2],
         },
         {
-            "valor": f"{df['anios_empresa'].mean():.1f} años",
-            "etiqueta": "Antigüedad promedio",
-            "detalle": f"Abandona {sale['anios_empresa'].mean():.1f} · "
-            f"Permanece {queda['anios_empresa'].mean():.1f}",
+            "valor": f"{metricas['recall']:.1%}",
+            "etiqueta": "Recall de GBM",
+            "detalle": "Casos agresivos detectados",
+            "color": SERIES[1],
+        },
+        {
+            "valor": f"{metricas['precision']:.1%}",
+            "etiqueta": "Precisión de GBM",
+            "detalle": f"F1-score {metricas['f1']:.3f}",
             "color": SERIES[3],
         },
     ]
 
 
-def _tabla_descriptivos() -> dbc.Table:
-    """Estadísticos descriptivos de las variables numéricas por grupo."""
-    df = get_dataframe()
+def _selector_ambito() -> html.Div:
+    """Selector del conjunto de datos que describen los gráficos del EDA."""
+    tamanos = tamanos_particion()
+    return html.Div(
+        [
+            html.Span("Conjunto de datos:", className="control-label me-3"),
+            dcc.RadioItems(
+                id=ID_AMBITO,
+                options=[
+                    {
+                        "label": f" Entrenamiento ({tamanos['train']})",
+                        "value": "train",
+                    },
+                    {"label": f" Prueba ({tamanos['test']})", "value": "test"},
+                    {"label": f" Completo ({tamanos['full']})", "value": "full"},
+                ],
+                value="train",
+                inline=True,
+                className="ambito-radio",
+                inputClassName="me-1",
+                labelClassName="me-4",
+            ),
+        ],
+        className="filter-row",
+    )
+
+
+def _tabla_asociacion(ambito: str) -> dbc.Table:
+    """Las diez variables más asociadas al grado, con su prueba estadística."""
+    datos = asociacion_con_grado(ambito).head(10)
     filas = []
-    for variable in NUMERIC_FEATURES:
-        sale = df.loc[df["abandono"] == 1, variable]
-        queda = df.loc[df["abandono"] == 0, variable]
-        formato = "{:,.0f}" if variable == "salario" else "{:,.2f}"
+    for _, fila in datos.iterrows():
+        v_cramer = "—" if np.isnan(fila["v_cramer"]) else f"{fila['v_cramer']:.3f}"
+        p_valor = "< 0,0001" if fila["p_valor"] < 0.0001 else f"{fila['p_valor']:.4f}"
         filas.append(
             [
-                LABELS[variable],
-                formato.format(df[variable].mean()),
-                formato.format(df[variable].std()),
-                formato.format(df[variable].min()),
-                formato.format(df[variable].max()),
-                formato.format(queda.mean()),
-                formato.format(sale.mean()),
+                fila["variable"],
+                fila["tipo"],
+                f"{fila['rho']:+.3f}",
+                v_cramer,
+                p_valor,
+                "LGG" if fila["rho"] < 0 else "GBM",
             ]
         )
     return data_table(
-        [
-            "Variable",
-            "Media",
-            "Desv. est.",
-            "Mínimo",
-            "Máximo",
-            "Media · permanece",
-            "Media · abandona",
-        ],
+        ["Variable", "Tipo", "Spearman r", "V de Cramér", "p-valor", "Empuja hacia"],
         filas,
     )
 
 
-def _controles_distribucion() -> dbc.Row:
-    """Selector de variable y tipo de gráfico para el explorador."""
-    return dbc.Row(
-        [
-            dbc.Col(
-                [
-                    dbc.Label("Variable a explorar", className="control-label"),
-                    dcc.Dropdown(
-                        id=ID_VARIABLE,
-                        options=[
-                            {"label": LABELS[v], "value": v} for v in NUMERIC_FEATURES
-                        ],
-                        value="satisfaccion",
-                        clearable=False,
-                        className="control-dropdown",
-                    ),
-                ],
-                md=6,
-            ),
-            dbc.Col(
-                [
-                    dbc.Label("Tipo de gráfico", className="control-label"),
-                    dbc.RadioItems(
-                        id=ID_TIPO,
-                        options=[
-                            {"label": "Histograma", "value": "histograma"},
-                            {"label": "Diagrama de caja", "value": "caja"},
-                        ],
-                        value="histograma",
-                        inline=True,
-                        className="control-radio",
-                    ),
-                ],
-                md=6,
-            ),
-        ],
-        className="controls-row g-3",
+def _bloque_eda(ambito: str) -> html.Div:
+    """Conjunto completo de figuras del EDA para el ámbito seleccionado."""
+    prueba_edad = prueba_edad_por_grado(ambito)
+    p_edad = (
+        "p < 0,0001" if prueba_edad["p_valor"] < 0.0001
+        else f"p = {prueba_edad['p_valor']:.4f}"
     )
 
-
-def _bloque_eda() -> html.Div:
-    """Contenido del bloque de análisis exploratorio."""
     return html.Div(
         [
-            kpi_row(_kpis_eda()),
             dbc.Row(
                 [
                     dbc.Col(
                         graph_card(
-                            fig_dona_abandono(),
-                            "Composición de la plantilla",
-                            "Proporción de empleados que abandonan frente a los que permanecen.",
+                            fig_distribucion_grado(ambito),
+                            "Distribución de la variable objetivo",
+                            f"Composición del {AMBITO_NOMBRES[ambito]}.",
+                        ),
+                        lg=4,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        graph_card(
+                            fig_edad_por_grado(ambito),
+                            "Edad al diagnóstico por grado",
+                            f"Prueba U de Mann-Whitney: {p_edad}.",
+                        ),
+                        lg=8,
+                        className="mb-4",
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        graph_card(
+                            fig_boxplot_edad(ambito),
+                            "Dispersión de la edad",
+                            "Los puntos son atípicos dentro de cada grado, no en la "
+                            "distribución global.",
                         ),
                         lg=5,
                         className="mb-4",
                     ),
                     dbc.Col(
                         graph_card(
-                            fig_abandono_departamento(),
-                            "Tasa de abandono por departamento",
-                            "La línea discontinua marca la media global.",
+                            fig_clinica_por_grado("Gender", ambito),
+                            "Género dentro de cada grado",
+                            "Predominio masculino en ambos grados, más marcado en GBM; la "
+                            "prueba chi-cuadrado no encuentra asociación significativa.",
                         ),
                         lg=7,
                         className="mb-4",
                     ),
                 ]
             ),
-            section_title("Explorador de distribuciones"),
-            card(
-                [
-                    series_chips(),
-                    _controles_distribucion(),
-                    dcc.Graph(
-                        id=ID_GRAFICO,
-                        figure=fig_histograma("satisfaccion"),
-                        config={"displaylogo": False, "responsive": True},
-                        className="graph",
-                    ),
-                    html.Div(
-                        "Los histogramas se normalizan a porcentaje dentro de cada grupo "
-                        "porque las clases están desbalanceadas; las líneas punteadas "
-                        "señalan la media de cada grupo.",
-                        className="graph-note",
-                    ),
-                ],
-                titulo="Distribución por grupo de abandono",
-                color=COLOR_PERMANECE,
-                className="mb-4",
-            ),
-            section_title("Estructura de correlaciones"),
             dbc.Row(
                 [
                     dbc.Col(
                         graph_card(
-                            fig_correlacion(),
-                            "Matriz de correlación",
-                            "Coeficiente de Pearson. El gris del centro de la escala "
-                            "representa la ausencia de relación lineal.",
+                            fig_clinica_por_grado("Race", ambito),
+                            "Grupo racial reportado dentro de cada grado",
+                            "Más de nueve de cada diez pacientes son del grupo White: las "
+                            "categorías minoritarias tienen muy pocas observaciones.",
                         ),
-                        lg=7,
-                        className="mb-4",
-                    ),
-                    dbc.Col(
-                        graph_card(
-                            fig_correlacion_objetivo(),
-                            "Correlación de cada variable con el abandono",
-                            "Valores positivos acompañan al abandono; negativos, a la permanencia.",
-                        ),
-                        lg=5,
+                        lg=12,
                         className="mb-4",
                     ),
                 ]
             ),
-            section_title("Estadísticos descriptivos"),
+            section_title("Mutaciones: prevalencia y capacidad discriminativa"),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        graph_card(
+                            fig_prevalencia_genes(ambito, top_n=12),
+                            "Prevalencia de mutación por gen y grado",
+                            "Los doce genes que más separan a los dos grupos.",
+                        ),
+                        lg=6,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        graph_card(
+                            fig_asociacion_grado(ambito, top_n=14),
+                            "Asociación de cada variable con el grado",
+                            "Signo negativo = empuja hacia LGG. Las barras rayadas no "
+                            "alcanzan significancia estadística (p ≥ 0,05 o |r| < 0,10).",
+                        ),
+                        lg=6,
+                        className="mb-4",
+                    ),
+                ]
+            ),
             card(
-                _tabla_descriptivos(),
-                subtitulo="Comparación de la media de cada variable entre los dos grupos.",
+                _tabla_asociacion(ambito),
+                titulo="Las diez variables más asociadas al grado",
+                subtitulo=f"{AMBITO_NOMBRES[ambito].capitalize()} · Spearman, V de Cramér y "
+                          "chi-cuadrado",
                 color=SERIES[3],
-            ),
-        ]
-    )
-
-
-# --------------------------------------------------------------------------- #
-# Bloque 2 · Desempeño del modelo
-# --------------------------------------------------------------------------- #
-def _kpis_modelo() -> list[dict]:
-    """Métricas principales del clasificador."""
-    m = load_metrics()
-    return [
-        {
-            "valor": f"{m['accuracy']:.1%}",
-            "etiqueta": "Accuracy",
-            "detalle": "Aciertos sobre el total",
-            "color": SERIES[0],
-        },
-        {
-            "valor": f"{m['precision']:.1%}",
-            "etiqueta": "Precisión",
-            "detalle": "Aciertos entre los casos señalados",
-            "color": SERIES[3],
-        },
-        {
-            "valor": f"{m['recall']:.1%}",
-            "etiqueta": "Recall",
-            "detalle": "Abandonos detectados",
-            "color": SERIES[1],
-        },
-        {
-            "valor": f"{m['f1']:.1%}",
-            "etiqueta": "F1-score",
-            "detalle": "Equilibrio precisión / recall",
-            "color": SERIES[2],
-        },
-    ]
-
-
-def _tabla_confusion() -> dbc.Table:
-    """Lectura en palabras de las cuatro celdas de la matriz de confusión."""
-    cm = load_metrics()["matriz_confusion"]
-    vn, fp = cm[0][0], cm[0][1]
-    fn, vp = cm[1][0], cm[1][1]
-    filas = [
-        [
-            "Verdaderos negativos",
-            f"{vn}",
-            "Permanece y el modelo acierta",
-            "Sin acción requerida",
-        ],
-        [
-            "Falsos positivos",
-            f"{fp}",
-            "Permanece pero el modelo lo marca como riesgo",
-            "Coste bajo: una conversación de más",
-        ],
-        [
-            "Falsos negativos",
-            f"{fn}",
-            "Abandona y el modelo no lo detecta",
-            "Coste alto: salida no anticipada",
-        ],
-        [
-            "Verdaderos positivos",
-            f"{vp}",
-            "Abandona y el modelo lo detecta",
-            "Caso donde el modelo aporta valor",
-        ],
-    ]
-    return data_table(
-        ["Celda", "Casos", "Interpretación", "Consecuencia operativa"], filas
-    )
-
-
-def _bloque_modelo() -> html.Div:
-    """Contenido del bloque de evaluación del modelo."""
-    m = load_metrics()
-    return html.Div(
-        [
-            kpi_row(_kpis_modelo()),
-            callout(
-                f"El modelo alcanza un AUC de {m['roc_auc']:.3f} en el conjunto de prueba "
-                f"y {m['cv_auc_media']:.3f} ± {m['cv_auc_desviacion']:.3f} en validación "
-                "cruzada. La cercanía entre ambos valores indica que no hay sobreajuste "
-                "relevante.",
-                titulo="Lectura general",
-                color=COLOR_PERMANECE,
-            ),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        graph_card(
-                            fig_roc(),
-                            "Curva ROC",
-                            "Cuanto más se aleja la curva de la diagonal, mejor separa el "
-                            "modelo a quienes abandonan de quienes permanecen.",
-                        ),
-                        lg=6,
-                        className="mb-4",
-                    ),
-                    dbc.Col(
-                        graph_card(
-                            fig_matriz_confusion(),
-                            "Matriz de confusión",
-                            f"Conjunto de prueba: {m['n_test']} empleados no vistos "
-                            "durante el entrenamiento.",
-                        ),
-                        lg=6,
-                        className="mb-4",
-                    ),
-                ]
-            ),
-            card(
-                _tabla_confusion(),
-                titulo="Los cuatro tipos de resultado, en palabras",
-                subtitulo="El modelo se calibró para reducir falsos negativos: en "
-                "retención, no detectar una salida cuesta más que una conversación "
-                "innecesaria.",
-                color=COLOR_ABANDONA,
                 className="mb-4",
             ),
-            section_title("Factores asociados al abandono"),
+            section_title("Multicolinealidad entre mutaciones"),
             dbc.Row(
                 [
                     dbc.Col(
                         graph_card(
-                            fig_importancias(),
-                            "Efecto de cada variable sobre el riesgo",
-                            "Coeficientes de la regresión logística sobre variables "
-                            "estandarizadas; OR = razón de odds.",
+                            fig_matriz_genes(ambito, top_n=12),
+                            "V de Cramér entre pares de genes",
+                            "La diagonal se omite (vale 1 por definición).",
                         ),
                         lg=7,
                         className="mb-4",
@@ -375,30 +246,36 @@ def _bloque_modelo() -> html.Div:
                         card(
                             [
                                 paragraph(
-                                    "Los coeficientes se calculan sobre variables "
-                                    "estandarizadas, así que su magnitud es directamente "
-                                    "comparable entre sí: un salto de una desviación "
-                                    "estándar en cada variable produce el cambio indicado "
-                                    "en el logaritmo de las odds."
+                                    "La matriz responde a una pregunta concreta: ¿hay pares "
+                                    "de mutaciones tan redundantes que no convenga meterlas "
+                                    "juntas en un modelo lineal?"
                                 ),
                                 bullet_list(
                                     [
-                                        "OR > 1 → la variable aumenta las probabilidades de abandono.",
-                                        "OR < 1 → la variable las reduce.",
-                                        "OR ≈ 1 → sin efecto apreciable, manteniendo el resto constante.",
+                                        "ATRX-TP53 es la co-ocurrencia más fuerte "
+                                        "(V ≈ 0,54): el eje clásico de co-mutación en la "
+                                        "astrocitogénesis.",
+                                        "FUBP1-CIC (V ≈ 0,46) y ATRX-IDH1 (V ≈ 0,46) "
+                                        "reafirman las firmas del linaje oligodendroglial y "
+                                        "de los gliomas de bajo grado.",
+                                        "PTEN-IDH1 (V ≈ 0,40) refleja exclusión mutua: "
+                                        "IDH1 mutado caracteriza LGG, PTEN alterado "
+                                        "caracteriza GBM.",
                                     ],
-                                    color=COLOR_ABANDONA,
+                                    color=COLOR_LGG,
                                 ),
                                 callout(
-                                    "Estos coeficientes describen asociación, no causalidad. "
-                                    "Señalan dónde mirar primero, no qué palanca accionar sin "
-                                    "más verificación.",
-                                    titulo="Advertencia de interpretación",
-                                    color=COLOR_ABANDONA,
+                                    "Ningún par supera el umbral crítico de redundancia "
+                                    "(V > 0,70), así que no hay multicolinealidad "
+                                    "estructural: el subconjunto de marcadores puede "
+                                    "retenerse completo sin inestabilidad en la estimación "
+                                    "de los coeficientes.",
+                                    titulo="Conclusión del diagnóstico",
+                                    color=SERIES[2],
                                 ),
                             ],
-                            titulo="Cómo leer los coeficientes",
-                            color=COLOR_ABANDONA,
+                            titulo="Cómo se lee la matriz",
+                            color=SERIES[2],
                         ),
                         lg=5,
                         className="mb-4",
@@ -409,36 +286,131 @@ def _bloque_modelo() -> html.Div:
     )
 
 
-# --------------------------------------------------------------------------- #
-# Layout
-# --------------------------------------------------------------------------- #
+def _bloque_modelo() -> html.Div:
+    """Desempeño del clasificador sobre el conjunto de prueba."""
+    metricas = load_metrics()
+    cm = metricas["matriz_confusion"]
+    verdaderos_lgg, falsos_gbm = cm[0]
+    falsos_lgg, verdaderos_gbm = cm[1]
+
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        graph_card(
+                            fig_matriz_confusion(),
+                            "Matriz de confusión",
+                            f"{falsos_lgg} falsos negativos (GBM no detectados) y "
+                            f"{falsos_gbm} falsos positivos (LGG marcados como GBM).",
+                        ),
+                        lg=5,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        graph_card(
+                            fig_roc(),
+                            "Curva ROC",
+                            "La curva se aproxima a la esquina superior izquierda: el "
+                            "modelo discrimina bien en todo el rango de umbrales, no solo "
+                            "en 0,50.",
+                        ),
+                        lg=7,
+                        className="mb-4",
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        graph_card(
+                            fig_coeficientes(top_n=12),
+                            "Coeficientes del modelo y odds ratios",
+                            f"Solo {metricas['n_variables_activas']} de "
+                            f"{metricas['n_columnas_modelo']} columnas sobreviven a la "
+                            "penalización L1; el resto tiene coeficiente exactamente cero.",
+                        ),
+                        lg=7,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        card(
+                            [
+                                paragraph(
+                                    f"Con {verdaderos_gbm} de {verdaderos_gbm + falsos_lgg} "
+                                    "glioblastomas detectados, el modelo prioriza no dejar "
+                                    "pasar los casos agresivos, a costa de marcar de más "
+                                    f"({falsos_gbm} pacientes con LGG clasificados como "
+                                    "GBM). En un contexto clínico es el intercambio "
+                                    "razonable: es preferible enviar un caso adicional a "
+                                    "revisión que omitir un tumor agresivo."
+                                ),
+                                bullet_list(
+                                    [
+                                        "IDH1 mutado es el factor protector más fuerte: "
+                                        "reduce drásticamente las probabilidades de GBM.",
+                                        "IDH2 refuerza la misma señal biológica, al ser "
+                                        "una isoforma de la misma enzima.",
+                                        "TP53 y PTEN empujan hacia GBM, igual que la edad.",
+                                        "La mayoría de los genes queda en cero: el modelo "
+                                        "reduce por sí solo el panel necesario.",
+                                    ],
+                                    color=COLOR_GBM,
+                                ),
+                                callout(
+                                    f"La diferencia entre el AUC de validación cruzada "
+                                    f"({metricas['cv_auc_media']:.3f}) y el de prueba "
+                                    f"({metricas['roc_auc']:.3f}) es pequeña: no hay "
+                                    "indicios de sobreajuste.",
+                                    titulo="Estabilidad",
+                                    color=SERIES[2],
+                                ),
+                            ],
+                            titulo="Lectura de los resultados",
+                            color=COLOR_GBM,
+                        ),
+                        lg=5,
+                        className="mb-4",
+                    ),
+                ]
+            ),
+        ]
+    )
+
+
 def layout() -> html.Div:
-    """Layout de la pestaña de resultados (EDA + métricas)."""
+    """Layout de la pestaña de resultados."""
     return html.Div(
         [
             page_header(
                 "Resultados",
-                "Primero los datos: qué patrones muestran. Después el modelo: "
-                "cuánto acierta y en qué se equivoca.",
+                "Primero qué dicen los datos, después qué aprende el modelo de ellos.",
                 "📊",
             ),
-            dbc.Tabs(
-                [
-                    dbc.Tab(
-                        _bloque_eda(),
-                        label="Análisis exploratorio",
-                        tab_class_name="inner-tab",
-                        active_tab_class_name="inner-tab-active",
-                    ),
-                    dbc.Tab(
-                        _bloque_modelo(),
-                        label="Desempeño del modelo",
-                        tab_class_name="inner-tab",
-                        active_tab_class_name="inner-tab-active",
-                    ),
-                ],
-                className="inner-tabs",
+            kpi_row(_kpis()),
+            section_title("Análisis exploratorio"),
+            callout(
+                "El EDA se describe por defecto sobre el conjunto de entrenamiento, igual "
+                "que en el libro: mirar el conjunto de prueba antes de evaluar el modelo "
+                "sería filtrar información. El selector permite comprobar que la "
+                "estratificación mantuvo la misma estructura en todas las particiones.",
+                titulo="Por qué el selector empieza en entrenamiento",
+                color=COLOR_LGG,
             ),
+            _selector_ambito(),
+            html.Div(series_chips(), className="mb-3"),
+            dcc.Loading(
+                html.Div(_bloque_eda("train"), id=ID_EDA),
+                type="dot",
+                color=COLOR_LGG,
+            ),
+            section_title("Desempeño del clasificador"),
+            paragraph(
+                "Todas las cifras de esta sección provienen del conjunto de prueba "
+                "reservado, que el modelo no vio durante el entrenamiento ni durante la "
+                "búsqueda de hiperparámetros."
+            ),
+            _bloque_modelo(),
         ],
         className="tab-content",
     )
@@ -447,15 +419,7 @@ def layout() -> html.Div:
 # --------------------------------------------------------------------------- #
 # Callbacks propios de la pestaña
 # --------------------------------------------------------------------------- #
-@callback(
-    Output(ID_GRAFICO, "figure"),
-    Input(ID_VARIABLE, "value"),
-    Input(ID_TIPO, "value"),
-)
-def actualizar_distribucion(variable: str, tipo: str):
-    """Redibuja el explorador de distribuciones según los controles."""
-    if not variable:
-        variable = "satisfaccion"
-    if tipo == "caja":
-        return fig_boxplot(variable)
-    return fig_histograma(variable)
+@callback(Output(ID_EDA, "children"), Input(ID_AMBITO, "value"))
+def actualizar_eda(ambito: str):
+    """Reconstruye las figuras del EDA con el conjunto de datos seleccionado."""
+    return _bloque_eda(ambito or "train")

@@ -1,0 +1,44 @@
+# Configuración de Google App Engine (entorno estándar, Python 3.12)
+#
+# Despliegue:
+#   gcloud auth login
+#   gcloud config set project TU-PROYECTO
+#   gcloud app deploy
+#
+# `app:server` es el objeto Flask que expone app.py (server = app.server), que
+# es lo que gunicorn necesita: Dash por sí solo no es una aplicación WSGI.
+#
+# Importante: el modelo se entrena al arrancar si falta model/model.pkl, y en
+# App Engine el sistema de archivos es de solo lectura. Versiona model/model.pkl
+# y model/metrics.json (o entrénalos antes de desplegar) para que el arranque no
+# tenga que escribir nada.
+
+runtime: python312
+
+# Un solo worker con varios hilos: cada worker carga pandas, scikit-learn y su
+# propia copia del modelo (~200 MB), así que dos workers no caben en una F2.
+# Los hilos bastan porque el trabajo del dashboard es de espera, no de CPU.
+entrypoint: gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 --preload app:server
+
+# F2 = 512 MB. La cuota gratuita diaria de App Engine (28 horas-instancia) es de
+# clase F1, que solo tiene 256 MB: con pandas + scikit-learn + plotly cargados es
+# muy probable que la instancia muera por memoria. Si prefieres quedarte dentro
+# de la cuota gratuita, cambia a F1 y prueba; si ves errores de memoria en los
+# logs, vuelve a F2.
+instance_class: F2
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 2
+  target_cpu_utilization: 0.7
+
+handlers:
+  # Recursos estáticos servidos directamente por App Engine
+  - url: /assets
+    static_dir: assets
+    secure: always
+
+  # Todo lo demás lo atiende la aplicación
+  - url: /.*
+    script: auto
+    secure: always

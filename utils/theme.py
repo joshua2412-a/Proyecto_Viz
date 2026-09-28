@@ -1,13 +1,16 @@
 """
 Tema visual del dashboard: paleta pastel y plantilla de Plotly.
 
-La paleta de series (azul / coral) fue validada para daltonismo y contraste,
+La paleta de series (azul / coral) está validada para daltonismo y contraste,
 por lo que se usa SIEMPRE en el mismo orden:
-    slot 1 -> "Permanece"   slot 2 -> "Abandona"
+    slot 1 -> LGG (glioma de bajo grado)    slot 2 -> GBM (glioblastoma)
 
-Los tonos pastel más claros se usan para superficies (fondos, tarjetas,
-cabeceras) y los tonos medios para las marcas de datos, de modo que el
-dashboard se vea suave pero los gráficos sigan siendo legibles.
+Es el mismo criterio de color del libro (azul = LGG, rojo = GBM), de modo que
+una figura del dashboard y su equivalente en el Jupyter Book se leen igual.
+
+Como el coral y el verde quedan por debajo de 3:1 de contraste contra el fondo
+blanco, ningún gráfico comunica identidad solo con color: todos llevan leyenda
+y etiquetas directas.
 """
 
 from __future__ import annotations
@@ -35,11 +38,12 @@ AXIS = "#C7D0DB"
 
 # Series categóricas (orden fijo, nunca ciclado)
 SERIES = ["#4E8CD9", "#E0785A", "#2FA987", "#9B7BD4", "#E0A83C"]
-COLOR_PERMANECE = SERIES[0]
-COLOR_ABANDONA = SERIES[1]
+COLOR_LGG = SERIES[0]
+COLOR_GBM = SERIES[1]
 
 # Mapa de colores para la variable objetivo
-COLOR_ABANDONO_MAP = {"Permanece": COLOR_PERMANECE, "Abandona": COLOR_ABANDONA}
+COLOR_GRADE_MAP = {"LGG": COLOR_LGG, "GBM": COLOR_GBM}
+ORDEN_GRADE = ["LGG", "GBM"]
 
 # Rampa secuencial azul (magnitud: mapas de calor, matriz de confusión)
 SEQ_BLUE = [
@@ -52,7 +56,8 @@ SEQ_BLUE = [
     "#1C5CAB",
 ]
 
-# Rampa divergente azul <-> coral con gris neutro (polaridad: correlaciones)
+# Rampa divergente azul <-> coral con gris neutro (polaridad: correlaciones,
+# coeficientes, contribuciones al log-odds)
 DIV_BLUE_CORAL = [
     [0.0, "#1C5CAB"],
     [0.25, "#9EC5F4"],

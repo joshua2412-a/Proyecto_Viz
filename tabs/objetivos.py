@@ -1,6 +1,7 @@
 """
-Pestaña 4 · Objetivos y justificación
-Objetivo general, objetivos específicos, alcance y justificación del proyecto.
+Pestaña 4 · Objetivos
+Objetivo general, objetivos específicos y criterios con los que se considera
+que el proyecto cumplió.
 """
 
 from __future__ import annotations
@@ -9,102 +10,95 @@ import dash_bootstrap_components as dbc
 from dash import html
 
 from utils.components import (
-    bullet_list,
-    callout,
     card,
+    data_table,
     page_header,
     paragraph,
     section_title,
 )
-from utils.theme import COLOR_ABANDONA, COLOR_PERMANECE, SERIES
-
-OBJETIVO_GENERAL = (
-    "Desarrollar una herramienta analítica interactiva que caracterice la rotación "
-    "laboral de la organización y estime la probabilidad de abandono de cada "
-    "empleado mediante un modelo de regresión logística, con el fin de apoyar "
-    "decisiones de retención basadas en evidencia."
-)
+from utils.data_loader import load_metrics
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 OBJETIVOS_ESPECIFICOS = [
     (
         "1",
-        "Construir la base de datos",
-        "Generar un conjunto de datos de empleados con las variables relevantes "
-        "para el análisis de rotación y documentar su proceso de construcción.",
+        "Caracterizar la cohorte",
+        "Describir el perfil clínico (edad, género, grupo racial) y mutacional de "
+        "los 839 pacientes, y verificar la calidad del dataset: duplicados, valores "
+        "faltantes, valores atípicos y supuestos distribucionales.",
     ),
     (
         "2",
-        "Caracterizar el fenómeno",
-        "Describir la magnitud y distribución del abandono mediante análisis "
-        "exploratorio: composición de la plantilla, tasas por departamento, "
-        "distribuciones y correlaciones entre variables.",
+        "Medir la asociación de cada variable con el grado",
+        "Contrastar cada predictora contra el grado tumoral con la prueba adecuada a "
+        "su naturaleza (Mann-Whitney para la edad, chi-cuadrado y V de Cramér para "
+        "las binarias y categóricas) y ordenar las variables por capacidad "
+        "discriminativa.",
     ),
     (
         "3",
-        "Entrenar el modelo",
-        "Ajustar un modelo de regresión logística que clasifique el abandono, "
-        "con preprocesamiento reproducible y validación sobre datos no vistos.",
+        "Descartar redundancia entre marcadores",
+        "Evaluar la co-ocurrencia entre mutaciones para detectar multicolinealidad y "
+        "confirmar que el conjunto retenido puede entrar completo en un modelo lineal "
+        "sin inestabilidad en la estimación de los coeficientes.",
     ),
     (
         "4",
-        "Evaluar el desempeño",
-        "Medir accuracy, precisión, recall, F1 y AUC, e interpretar la matriz de "
-        "confusión en términos del coste de cada tipo de error.",
+        "Construir un clasificador interpretable de referencia",
+        "Entrenar una regresión logística con búsqueda de hiperparámetros y "
+        "validación cruzada estratificada, y traducir sus coeficientes a odds ratios "
+        "para poder discutirlos clínicamente.",
     ),
     (
         "5",
-        "Identificar factores",
-        "Interpretar los coeficientes del modelo como razones de odds para "
-        "determinar qué variables incrementan o reducen el riesgo de salida.",
+        "Evaluar con métricas sensibles al contexto clínico",
+        "Reportar accuracy, precisión, recall, F1 y AUC-ROC sobre un conjunto de "
+        "prueba reservado, prestando especial atención al recall de GBM: dejar pasar "
+        "un tumor agresivo es el error más costoso.",
     ),
     (
         "6",
-        "Entregar un simulador",
-        "Publicar un formulario interactivo que devuelva la probabilidad de "
-        "abandono de un perfil concreto en tiempo real.",
+        "Poner el análisis a disposición de otros",
+        "Publicar el desarrollo completo como Jupyter Book y una capa interactiva "
+        "—este dashboard— que permita explorar el EDA y simular perfiles de paciente "
+        "sin tocar el código.",
     ),
 ]
 
-JUSTIFICACION = [
-    (
-        "Pertinencia práctica",
-        "Anticipar una salida abre una ventana de acción —conversación, ajuste "
-        "salarial, cambio de equipo, plan de carrera— que desaparece por completo "
-        "cuando la renuncia ya está presentada.",
-    ),
-    (
-        "Viabilidad técnica",
-        "El modelo usa siete variables que cualquier área de gestión humana ya "
-        "registra en su sistema de nómina. No requiere nuevos instrumentos de "
-        "recolección ni inversión en infraestructura.",
-    ),
-    (
-        "Interpretabilidad",
-        "La regresión logística entrega coeficientes traducibles a razones de "
-        "odds: el área usuaria entiende por qué el modelo marca un caso, lo que "
-        "es condición necesaria para que la recomendación se aplique.",
-    ),
-    (
-        "Eficiencia del gasto",
-        "Priorizar permite concentrar el presupuesto de retención en los casos "
-        "con riesgo real, en lugar de repartirlo de forma uniforme.",
-    ),
-]
 
-ALCANCE = {
-    "Incluye": [
-        "Análisis descriptivo de la plantilla y de la rotación.",
-        "Modelo de clasificación binaria con validación en datos de prueba.",
-        "Interpretación de factores asociados al abandono.",
-        "Simulador de riesgo individual.",
-    ],
-    "No incluye": [
-        "Inferencia causal sobre los motivos de la renuncia.",
-        "Predicción de la fecha concreta de salida.",
-        "Datos reales de empleados identificables.",
-        "Integración con sistemas de nómina en producción.",
-    ],
-}
+def _tabla_criterios() -> dbc.Table:
+    """Criterios de cumplimiento contrastados con las métricas obtenidas."""
+    metricas = load_metrics()
+    filas = [
+        [
+            "AUC-ROC en prueba ≥ 0,85",
+            f"{metricas['roc_auc']:.3f}",
+            "Cumple" if metricas["roc_auc"] >= 0.85 else "No cumple",
+        ],
+        [
+            "Recall de GBM ≥ 0,85",
+            f"{metricas['recall']:.3f}",
+            "Cumple" if metricas["recall"] >= 0.85 else "No cumple",
+        ],
+        [
+            "Accuracy en prueba ≥ 0,80",
+            f"{metricas['accuracy']:.3f}",
+            "Cumple" if metricas["accuracy"] >= 0.80 else "No cumple",
+        ],
+        [
+            "Modelo interpretable variable a variable",
+            f"{metricas['n_variables_activas']} columnas activas de {metricas['n_columnas_modelo']}",
+            "Cumple",
+        ],
+        [
+            "Estabilidad entre validación cruzada y prueba",
+            f"AUC CV {metricas['cv_auc_media']:.3f} ± {metricas['cv_auc_desviacion']:.3f}",
+            "Cumple"
+            if abs(metricas["cv_auc_media"] - metricas["roc_auc"]) < 0.05
+            else "Revisar",
+        ],
+    ]
+    return data_table(["Criterio", "Resultado obtenido", "Estado"], filas)
 
 
 def layout() -> html.Div:
@@ -112,16 +106,29 @@ def layout() -> html.Div:
     return html.Div(
         [
             page_header(
-                "Objetivos y justificación",
-                "Qué se propone lograr el proyecto, con qué alcance y por qué "
-                "vale la pena hacerlo.",
+                "Objetivos del proyecto",
+                "Qué se propone construir, con qué pasos y con qué criterio se "
+                "considera suficiente el resultado.",
                 "🎯",
             ),
             card(
-                html.Div(OBJETIVO_GENERAL, className="objetivo-general"),
+                [
+                    paragraph(
+                        "Construir una solución analítica integral que identifique el "
+                        "subconjunto óptimo de factores clínicos y mutaciones genéticas "
+                        "para clasificar con precisión la severidad del glioma (LGG frente "
+                        "a GBM), reduciendo los costos asociados a pruebas moleculares "
+                        "innecesarias."
+                    ),
+                    paragraph(
+                        "El énfasis está en la palabra óptimo: no se busca el modelo más "
+                        "complejo, sino el que consiga una precisión clínicamente útil con "
+                        "la menor cantidad de información molecular posible y con un "
+                        "razonamiento que un especialista pueda auditar."
+                    ),
+                ],
                 titulo="Objetivo general",
-                color=COLOR_PERMANECE,
-                className="mb-4",
+                color=COLOR_LGG,
             ),
             section_title("Objetivos específicos"),
             dbc.Row(
@@ -129,67 +136,39 @@ def layout() -> html.Div:
                     dbc.Col(
                         card(
                             [
-                                html.Div(numero, className="objetivo-numero"),
+                                html.Div(numero, className="guide-icon"),
                                 html.Div(titulo, className="guide-name"),
-                                html.Div(texto, className="guide-text"),
+                                html.Div(descripcion, className="guide-text"),
                             ],
                             color=SERIES[i % len(SERIES)],
+                            className="guide-card",
                         ),
                         lg=4,
                         md=6,
                         xs=12,
                         className="mb-3",
                     )
-                    for i, (numero, titulo, texto) in enumerate(OBJETIVOS_ESPECIFICOS)
-                ],
-                className="g-3 mb-4",
-            ),
-            section_title("Justificación"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        card(
-                            paragraph(texto),
-                            titulo=titulo,
-                            color=SERIES[i % len(SERIES)],
-                        ),
-                        lg=6,
-                        className="mb-3",
+                    for i, (numero, titulo, descripcion) in enumerate(
+                        OBJETIVOS_ESPECIFICOS
                     )
-                    for i, (titulo, texto) in enumerate(JUSTIFICACION)
                 ],
-                className="g-3 mb-4",
+                className="g-3",
             ),
-            section_title("Alcance del trabajo"),
-            dbc.Row(
+            section_title("Criterios de cumplimiento"),
+            card(
                 [
-                    dbc.Col(
-                        card(
-                            bullet_list(ALCANCE["Incluye"], color=COLOR_PERMANECE),
-                            titulo="✅ El proyecto incluye",
-                            color=COLOR_PERMANECE,
-                        ),
-                        lg=6,
-                        className="mb-3",
+                    paragraph(
+                        "Los umbrales se fijaron antes de entrenar, tomando como referencia "
+                        "el desempeño que reporta la literatura de clasificación de grado "
+                        "tumoral en gliomas con variables clínicas y mutacionales. La "
+                        "columna de resultado se calcula en vivo a partir de "
+                        "model/metrics.json, así que se actualiza sola al reentrenar."
                     ),
-                    dbc.Col(
-                        card(
-                            bullet_list(ALCANCE["No incluye"], color=COLOR_ABANDONA),
-                            titulo="⛔ El proyecto no incluye",
-                            color=COLOR_ABANDONA,
-                        ),
-                        lg=6,
-                        className="mb-3",
-                    ),
-                ]
-            ),
-            callout(
-                "Delimitar el alcance es parte del rigor: el modelo estima "
-                "asociación estadística, no causalidad. Una variable con un "
-                "coeficiente alto señala dónde mirar, no qué cambiar sin más "
-                "verificación.",
-                titulo="Nota metodológica",
-                color=SERIES[3],
+                    _tabla_criterios(),
+                ],
+                titulo="Estado frente a los criterios definidos",
+                subtitulo="Métricas sobre el conjunto de prueba reservado (168 pacientes)",
+                color=COLOR_GBM,
             ),
         ],
         className="tab-content",

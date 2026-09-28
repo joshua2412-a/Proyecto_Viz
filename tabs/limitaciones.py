@@ -1,6 +1,7 @@
 """
 Pestaña 9 · Limitaciones
-Qué no puede afirmarse con este trabajo, y qué haría falta para poder afirmarlo.
+Qué NO se puede concluir con este trabajo. Se declara de forma explícita para
+que ninguna cifra del tablero se lea con más alcance del que tiene.
 """
 
 from __future__ import annotations
@@ -9,7 +10,6 @@ import dash_bootstrap_components as dbc
 from dash import html
 
 from utils.components import (
-    bullet_list,
     callout,
     card,
     data_table,
@@ -17,184 +17,145 @@ from utils.components import (
     paragraph,
     section_title,
 )
-from utils.data_loader import load_metrics
-from utils.theme import COLOR_ABANDONA, COLOR_PERMANECE, SERIES
+from utils.data_loader import distribucion_clinica, load_metrics, tamanos_particion
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
-# (categoría, limitación, implicación práctica)
 LIMITACIONES = [
     (
-        "Datos",
-        "Los datos son sintéticos",
-        "El dataset se generó con un proceso conocido y no proviene de una "
-        "organización real. Los coeficientes reflejan ese proceso generador, por lo "
-        "que las magnitudes concretas no son transferibles a otra empresa sin "
-        "reentrenar con sus propios datos.",
+        "Cohorte única y no local",
+        "Todos los pacientes provienen de los proyectos TCGA-LGG y TCGA-GBM, "
+        "recogidos mayoritariamente en centros de Estados Unidos. No hay validación "
+        "externa con una cohorte independiente, y menos aún con población "
+        "latinoamericana, así que el desempeño observado no es trasladable sin más a "
+        "otro contexto asistencial.",
     ),
     (
-        "Datos",
-        "Corte transversal sin dimensión temporal",
-        "Cada empleado aparece una sola vez, en un único momento. El modelo estima "
-        "si alguien abandona, no cuándo, y no puede capturar deterioros graduales "
-        "(una satisfacción que baja tres puntos en un año).",
+        "Fuerte desbalance en el grupo racial",
+        "Más de nueve de cada diez pacientes pertenecen al grupo White. Las "
+        "categorías minoritarias tienen tan pocas observaciones que su coeficiente "
+        "no es estimable con precisión: la asociación significativa entre grupo "
+        "racial y grado debe leerse con máxima cautela y no como un efecto biológico.",
     ),
     (
-        "Variables",
-        "Variables relevantes ausentes",
-        "Quedan fuera factores con peso reconocido en la literatura: calidad de la "
-        "relación con el jefe directo, distancia al lugar de trabajo, ofertas "
-        "externas recibidas, motivos personales o de salud, flexibilidad horaria.",
-    ),
-    (
-        "Variables",
-        "Satisfacción autodeclarada",
-        "Es una medida subjetiva sujeta a sesgo de deseabilidad social: quien ya "
-        "decidió irse puede responder de forma estratégica o simplemente no "
-        "responder la encuesta.",
-    ),
-    (
-        "Modelo",
-        "Supuesto de linealidad en el logit",
-        "La regresión logística asume un efecto lineal sobre el logaritmo de las "
-        "odds. Relaciones no lineales o interacciones (por ejemplo, sobrecarga que "
-        "solo pesa en salarios bajos) no se capturan sin especificarlas de forma "
-        "explícita.",
-    ),
-    (
-        "Modelo",
-        "Precisión limitada por el desbalance",
-        "Con `class_weight='balanced'` el modelo gana recall a costa de precisión: "
-        "marca como riesgo a personas que no pensaban irse. Es un intercambio "
-        "deliberado, pero implica un coste operativo en revisiones innecesarias.",
-    ),
-    (
-        "Alcance",
         "Asociación, no causalidad",
-        "El diseño es observacional. Un coeficiente alto no autoriza a concluir que "
-        "modificar esa variable reduzca el abandono: haría falta un diseño "
-        "experimental o cuasi-experimental para sostener esa afirmación.",
+        "Las pruebas de independencia y las correlaciones detectan asociación "
+        "estadística. Que IDH1 mutado acompañe a los gliomas de bajo grado no "
+        "establece un mecanismo causal, y el modelo tampoco lo estima.",
     ),
     (
-        "Alcance",
-        "Validez temporal limitada",
-        "Los patrones de rotación cambian con el mercado laboral y con la propia "
-        "organización. Un modelo entrenado hoy se degrada; requiere reentrenamiento "
-        "y monitoreo periódico.",
+        "El modelo predice el grado, no el pronóstico",
+        "La variable objetivo es la clasificación histológica LGG/GBM. Nada de lo "
+        "que estima este modelo habla de supervivencia, de respuesta al tratamiento "
+        "ni de progresión: son preguntas distintas que requieren otros datos y otro "
+        "diseño.",
     ),
     (
-        "Ético",
-        "Riesgo de uso indebido",
-        "Una probabilidad alta no debe convertirse en una etiqueta que condicione "
-        "promociones, asignaciones o renovaciones. Usada así, la herramienta "
-        "produciría exactamente el daño que pretende evitar.",
+        "Panel de genes fijo y binario",
+        "Las 20 mutaciones entran como indicadores 0/1: no se distingue el tipo de "
+        "variante, su carga alélica ni su localización. Dos pacientes con 'IDH1 "
+        "mutado' pueden tener alteraciones biológicamente distintas.",
+    ),
+    (
+        "Es un baseline, no el modelo final",
+        "La regresión logística se eligió por interpretabilidad y como referencia "
+        "comparable con la literatura. El proyecto contempla contrastarla con "
+        "modelos más complejos; hasta que esa comparación esté hecha, estas cifras "
+        "son la cota de referencia, no el techo alcanzable.",
+    ),
+    (
+        "La reducción de costes es una hipótesis, no un resultado clínico",
+        "Que la penalización L1 deje en cero la mayoría de los genes sugiere que un "
+        "panel más pequeño bastaría para clasificar el grado. Validar eso exige un "
+        "estudio prospectivo con el panel reducido, no solo un modelo entrenado "
+        "sobre datos históricos.",
+    ),
+    (
+        "Ausencia de calibración evaluada",
+        "Se reportan métricas de discriminación (AUC, recall, precisión), pero no se "
+        "evaluó la calibración de las probabilidades. Una probabilidad del 70 % no "
+        "está verificada como equivalente a un 70 % de casos reales de GBM.",
     ),
 ]
 
-MEJORAS = [
-    "Incorporar histórico longitudinal para modelar la evolución del riesgo en el tiempo.",
-    "Añadir variables de relación con el jefe directo y de calidad del equipo.",
-    "Comparar contra modelos no lineales (bosques aleatorios, gradient boosting) "
-    "usando SHAP para conservar la explicabilidad.",
-    "Aplicar análisis de supervivencia (Cox, Kaplan-Meier) para estimar el tiempo hasta la salida.",
-    "Calibrar el umbral de decisión con el coste real de cada tipo de error.",
-    "Auditar sesgos por grupo (edad, género, área) antes de cualquier uso en producción.",
-    "Implementar monitoreo de deriva de datos y reentrenamiento programado.",
-]
+
+def _tabla_representatividad() -> dbc.Table:
+    """Composición por grupo racial: la evidencia del sesgo de la muestra."""
+    tabla = distribucion_clinica("Race", "train")
+    agregado = (
+        tabla.groupby("categoria", as_index=False)["pacientes"].sum().sort_values(
+            "pacientes", ascending=False
+        )
+    )
+    total = agregado["pacientes"].sum()
+    return data_table(
+        ["Grupo racial reportado", "Pacientes", "% de la cohorte de entrenamiento"],
+        [
+            [
+                fila["categoria"],
+                f"{int(fila['pacientes'])}",
+                f"{fila['pacientes'] / total * 100:.2f}%",
+            ]
+            for _, fila in agregado.iterrows()
+        ],
+    )
 
 
 def layout() -> html.Div:
     """Layout de la pestaña de limitaciones."""
     metricas = load_metrics()
-    cm = metricas["matriz_confusion"]
-    falsos_negativos = cm[1][0]
-    falsos_positivos = cm[0][1]
-
-    categorias = ["Datos", "Variables", "Modelo", "Alcance", "Ético"]
-    colores = {cat: SERIES[i % len(SERIES)] for i, cat in enumerate(categorias)}
+    tamanos = tamanos_particion()
 
     return html.Div(
         [
             page_header(
                 "Limitaciones",
-                "Un modelo honesto declara sus fronteras: estas son las de este trabajo.",
+                "Ocho fronteras del trabajo, declaradas antes de que alguien las "
+                "encuentre leyendo las cifras con demasiada confianza.",
                 "⚠️",
             ),
             callout(
-                f"En el conjunto de prueba el modelo dejó pasar {falsos_negativos} "
-                f"abandonos reales y marcó {falsos_positivos} empleados que se quedaron. "
-                "Ninguna de las dos cifras es un defecto oculto: son la consecuencia "
-                "medida del umbral elegido y deben conocerse antes de usar la "
-                "herramienta para tomar decisiones.",
-                titulo="El error, con números",
-                color=COLOR_ABANDONA,
+                f"Todo lo que se afirma aquí se sostiene sobre {tamanos['full']} pacientes "
+                f"de una sola fuente, con {metricas['n_test']} de ellos usados para medir "
+                "el desempeño. Es una muestra suficiente para un baseline y pequeña para "
+                "una afirmación clínica.",
+                titulo="El tamaño manda",
+                color=COLOR_GBM,
             ),
-            section_title("Limitaciones identificadas"),
             dbc.Row(
                 [
                     dbc.Col(
                         card(
-                            [
-                                html.Span(
-                                    categoria,
-                                    className="etiqueta-categoria",
-                                    style={"background": colores[categoria]},
-                                ),
-                                html.Div(titulo, className="guide-name"),
-                                html.Div(texto, className="guide-text"),
-                            ],
-                            color=colores[categoria],
+                            paragraph(descripcion),
+                            titulo=titulo,
+                            color=SERIES[i % len(SERIES)],
                         ),
-                        lg=4,
-                        md=6,
-                        xs=12,
+                        lg=6,
                         className="mb-3",
                     )
-                    for categoria, titulo, texto in LIMITACIONES
+                    for i, (titulo, descripcion) in enumerate(LIMITACIONES)
                 ],
-                className="g-3 mb-4",
+                className="g-3",
             ),
-            section_title("Qué haría falta para superarlas"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        card(
-                            bullet_list(MEJORAS, color=COLOR_PERMANECE),
-                            titulo="Líneas de trabajo futuras",
-                            color=COLOR_PERMANECE,
-                        ),
-                        lg=7,
-                        className="mb-3",
-                    ),
-                    dbc.Col(
-                        card(
-                            data_table(
-                                ["Lo que el modelo sí hace", "Lo que no hace"],
-                                [
-                                    ["Estima una probabilidad de abandono", "Predice una fecha de salida"],
-                                    ["Ordena casos por prioridad de atención", "Explica el motivo real de la renuncia"],
-                                    ["Identifica variables asociadas", "Demuestra causalidad"],
-                                    ["Sugiere dónde investigar", "Sustituye la conversación con la persona"],
-                                    ["Apoya decisiones de retención", "Justifica decisiones disciplinarias"],
-                                ],
-                                resaltar_primera_columna=False,
-                            ),
-                            titulo="Frontera de uso",
-                            color=COLOR_ABANDONA,
-                        ),
-                        lg=5,
-                        className="mb-3",
-                    ),
-                ]
-            ),
+            section_title("La limitación más medible: representatividad"),
             card(
-                paragraph(
-                    "Declarar estas limitaciones no debilita el trabajo: lo hace "
-                    "utilizable. Una herramienta cuyo margen de error se conoce puede "
-                    "integrarse en un proceso de decisión con las salvaguardas "
-                    "adecuadas; una que se presenta como infalible acaba retirada en "
-                    "el primer caso en que falla."
-                ),
-                titulo="Nota final",
-                color=SERIES[3],
+                [
+                    paragraph(
+                        "El sesgo de composición no es una sospecha, se puede contar. Esta "
+                        "es la distribución real por grupo racial en la cohorte de "
+                        "entrenamiento, y explica por qué cualquier conclusión sobre "
+                        "grupos minoritarios queda fuera del alcance del trabajo."
+                    ),
+                    _tabla_representatividad(),
+                ],
+                titulo="Composición de la cohorte por grupo racial",
+                color=COLOR_LGG,
+            ),
+            callout(
+                "Un dashboard que estima probabilidades sobre personas tiene que decir con "
+                "la misma claridad qué no sabe. Esa es la función de esta pestaña: no es un "
+                "trámite académico, es parte del resultado.",
+                titulo="Por qué esta pestaña existe",
+                color=SERIES[2],
             ),
         ],
         className="tab-content",

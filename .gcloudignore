@@ -1,0 +1,28 @@
+# Archivos que NO se suben a App Engine.
+# El libro (jbook/) se publica aparte en GitHub Pages: subirlo aquí solo
+# alargaría el despliegue.
+
+.git/
+.gitignore
+.gcloudignore
+
+# Entornos y cachés
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Fuente y build del Jupyter Book
+jbook/
+scripts/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Documentación
+README.md

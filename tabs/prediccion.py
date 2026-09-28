@@ -1,7 +1,7 @@
 """
 Pestaña 8 · Predicción
-Formulario interactivo que carga model/model.pkl y devuelve la probabilidad de
-abandono de un empleado concreto en tiempo real.
+Formulario interactivo que carga model/model.pkl y devuelve la probabilidad
+estimada de glioblastoma para un perfil clínico-molecular concreto.
 
 El modelo NO se entrena aquí: se carga desde disco a través de
 utils.data_loader, que mantiene el pipeline en caché para que la respuesta sea
@@ -15,18 +15,29 @@ from dash import Input, Output, State, callback, dcc, html
 
 from utils.config import (
     DEFAULT_INPUT,
-    DEPARTAMENTOS,
+    GENDER_LABELS,
+    GENE_DESCRIPCION,
+    GENE_FEATURES,
+    GENES_DESTACADOS,
     INPUT_RANGES,
     LABELS,
-    RIESGO_ALTO,
-    RIESGO_MEDIO,
+    RACE_LABELS,
+    UMBRAL_GBM,
+    UMBRAL_LGG,
 )
-from utils.components import bullet_list, callout, card, page_header, paragraph, section_title
-from utils.data_loader import predecir_abandono, tasa_abandono_global
-from utils.figures import fig_comparacion_perfil, fig_gauge_riesgo
+from utils.components import (
+    bullet_list,
+    callout,
+    card,
+    page_header,
+    paragraph,
+    section_title,
+)
+from utils.data_loader import predecir_gbm
+from utils.figures import fig_contribuciones, fig_edad_vs_probabilidad, fig_gauge_probabilidad
 from utils.theme import (
-    COLOR_ABANDONA,
-    COLOR_PERMANECE,
+    COLOR_GBM,
+    COLOR_LGG,
     SERIES,
     STATUS_CRITICAL,
     STATUS_GOOD,
@@ -34,35 +45,33 @@ from utils.theme import (
 )
 
 # Identificadores de los campos del formulario
-ID = {
-    "edad": "pred-edad",
-    "salario": "pred-salario",
-    "anios_empresa": "pred-anios",
-    "departamento": "pred-departamento",
-    "satisfaccion": "pred-satisfaccion",
-    "horas_trabajadas": "pred-horas",
-    "promociones": "pred-promociones",
-}
+ID_EDAD = "pred-edad"
+ID_GENERO = "pred-genero"
+ID_RAZA = "pred-raza"
+ID_GENES_CLAVE = "pred-genes-clave"
+ID_GENES_RESTO = "pred-genes-resto"
 ID_BOTON = "pred-boton"
 ID_RESET = "pred-reset"
 ID_RESULTADO = "pred-resultado"
 
-# Recomendaciones asociadas a cada nivel de riesgo
-ACCIONES = {
-    "alto": [
-        "Programar una conversación de retención en los próximos días.",
-        "Revisar la equidad salarial del cargo frente al mercado interno.",
-        "Evaluar la carga de trabajo y redistribuirla si excede lo sostenible.",
-        "Definir un plan de desarrollo con hitos concretos a seis meses.",
+GENES_RESTANTES = [gen for gen in GENE_FEATURES if gen not in GENES_DESTACADOS]
+
+# Lectura clínica asociada a cada banda de probabilidad
+LECTURAS = {
+    "lgg": [
+        "El perfil es compatible con un glioma de bajo grado.",
+        "Confirmar con histología e imagen según el protocolo del centro.",
+        "La secuenciación ampliada aporta poco valor añadido para decidir el grado.",
     ],
-    "medio": [
-        "Incluir a la persona en el seguimiento trimestral de clima.",
-        "Verificar que tenga una ruta de promoción visible y realista.",
-        "Confirmar que la carga semanal se mantiene dentro del rango previsto.",
+    "incierto": [
+        "El perfil cae en la zona de incertidumbre del modelo.",
+        "Es el caso en el que la secuenciación completa sí cambia la decisión.",
+        "No usar la estimación como criterio único: pedir confirmación molecular.",
     ],
-    "bajo": [
-        "Mantener el seguimiento habitual de desempeño y clima.",
-        "Aprovechar el perfil como referencia de buenas prácticas del área.",
+    "gbm": [
+        "El perfil es compatible con un glioblastoma multiforme.",
+        "Priorizar la confirmación diagnóstica y la planificación del tratamiento.",
+        "Revisar la edad y las mutaciones que más pesan en el desglose de abajo.",
     ],
 }
 
@@ -70,31 +79,20 @@ ACCIONES = {
 # --------------------------------------------------------------------------- #
 # Formulario
 # --------------------------------------------------------------------------- #
-def _campo_slider(variable: str, formato=None, n_marcas: int = 5) -> html.Div:
-    """Campo de formulario con slider para una variable numérica.
-
-    `formato` es una función que convierte el valor de una marca en su texto;
-    permite mostrar el salario en millones sin saturar el eje.
-    """
-    minimo, maximo, paso = INPUT_RANGES[variable]
-    if formato is None:
-        formato = (lambda v: f"{v:.1f}") if isinstance(paso, float) else (lambda v: f"{v:.0f}")
-
-    marcas = {}
-    for i in range(n_marcas + 1):
-        valor = minimo + (maximo - minimo) * i / n_marcas
-        clave = round(valor, 1) if isinstance(paso, float) else int(valor)
-        marcas[clave] = formato(valor)
+def _campo_edad() -> html.Div:
+    """Slider de edad al diagnóstico."""
+    minimo, maximo, paso = INPUT_RANGES["Age_at_diagnosis"]
+    marcas = {int(valor): f"{int(valor)}" for valor in range(int(minimo), int(maximo) + 1, 15)}
 
     return html.Div(
         [
-            dbc.Label(LABELS[variable], className="control-label"),
+            dbc.Label(LABELS["Age_at_diagnosis"], className="control-label"),
             dcc.Slider(
-                id=ID[variable],
+                id=ID_EDAD,
                 min=minimo,
                 max=maximo,
                 step=paso,
-                value=DEFAULT_INPUT[variable],
+                value=DEFAULT_INPUT["Age_at_diagnosis"],
                 marks=marcas,
                 tooltip={"placement": "bottom", "always_visible": True},
                 className="form-slider",
@@ -104,34 +102,105 @@ def _campo_slider(variable: str, formato=None, n_marcas: int = 5) -> html.Div:
     )
 
 
+def _opciones_genes(genes: list[str]) -> list[dict]:
+    """Opciones de checklist con la función biológica de cada gen en el tooltip."""
+    return [
+        {
+            "label": html.Span(
+                gen,
+                title=GENE_DESCRIPCION.get(gen, ""),
+                className="gene-label",
+            ),
+            "value": gen,
+        }
+        for gen in genes
+    ]
+
+
 def _formulario() -> dbc.Card:
     """Tarjeta con todos los campos de entrada y los botones de acción."""
     return card(
         [
+            _campo_edad(),
             html.Div(
                 [
-                    dbc.Label(LABELS["departamento"], className="control-label"),
+                    dbc.Label(LABELS["Gender"], className="control-label"),
                     dcc.Dropdown(
-                        id=ID["departamento"],
-                        options=[{"label": d, "value": d} for d in DEPARTAMENTOS],
-                        value=DEFAULT_INPUT["departamento"],
+                        id=ID_GENERO,
+                        options=[
+                            {"label": etiqueta, "value": clave}
+                            for clave, etiqueta in GENDER_LABELS.items()
+                        ],
+                        value=DEFAULT_INPUT["Gender"],
                         clearable=False,
                         className="control-dropdown",
                     ),
                 ],
                 className="form-field",
             ),
-            _campo_slider("edad"),
-            # El salario se etiqueta en millones para que las marcas no se solapen
-            _campo_slider("salario", lambda v: f"${v / 1_000_000:.1f}M", n_marcas=4),
-            _campo_slider("anios_empresa"),
-            _campo_slider("satisfaccion", lambda v: f"{v:.1f}", n_marcas=4),
-            _campo_slider("horas_trabajadas"),
-            _campo_slider("promociones", n_marcas=6),
+            html.Div(
+                [
+                    dbc.Label(LABELS["Race"], className="control-label"),
+                    dcc.Dropdown(
+                        id=ID_RAZA,
+                        options=[
+                            {"label": etiqueta, "value": clave}
+                            for clave, etiqueta in RACE_LABELS.items()
+                        ],
+                        value=DEFAULT_INPUT["Race"],
+                        clearable=False,
+                        className="control-dropdown",
+                    ),
+                ],
+                className="form-field",
+            ),
+            html.Div(
+                [
+                    dbc.Label(
+                        "Mutaciones con señal en el grado", className="control-label"
+                    ),
+                    html.Div(
+                        "Marca los genes mutados. Estos ocho son los que el EDA "
+                        "encontró asociados al grado tumoral.",
+                        className="control-hint",
+                    ),
+                    dbc.Checklist(
+                        id=ID_GENES_CLAVE,
+                        options=_opciones_genes(GENES_DESTACADOS),
+                        value=[],
+                        inline=True,
+                        className="gene-checklist",
+                    ),
+                ],
+                className="form-field",
+            ),
+            dbc.Accordion(
+                dbc.AccordionItem(
+                    [
+                        html.Div(
+                            "El modelo deja en cero el coeficiente de casi todas "
+                            "estas, así que marcarlas no suele cambiar la "
+                            "predicción. Están aquí para completar el panel.",
+                            className="control-hint",
+                        ),
+                        dbc.Checklist(
+                            id=ID_GENES_RESTO,
+                            options=_opciones_genes(GENES_RESTANTES),
+                            value=[],
+                            inline=True,
+                            className="gene-checklist",
+                        ),
+                    ],
+                    title=f"Resto del panel ({len(GENES_RESTANTES)} genes)",
+                ),
+                start_collapsed=True,
+                flush=True,
+                className="mb-3",
+            ),
             html.Div(
                 [
                     dbc.Button(
-                        "Calcular riesgo de abandono",
+                        "Estimar probabilidad de GBM",
                         id=ID_BOTON,
                         color="primary",
                         className="btn-predecir",
@@ -148,9 +217,9 @@ def _formulario() -> dbc.Card:
                 className="form-actions",
             ),
         ],
-        titulo="Perfil del empleado",
-        subtitulo="Ajusta los valores y pulsa el botón para obtener la predicción.",
-        color=COLOR_PERMANECE,
+        titulo="Perfil del paciente",
+        subtitulo="Ajusta los valores y pulsa el botón para obtener la estimación.",
+        color=COLOR_LGG,
     )
 
 
@@ -158,35 +227,45 @@ def _formulario() -> dbc.Card:
 # Resultado
 # --------------------------------------------------------------------------- #
 def _clasificar(probabilidad: float) -> tuple[str, str, str, str]:
-    """Traduce la probabilidad a nivel, color, icono y lectura textual."""
-    if probabilidad >= RIESGO_ALTO:
+    """Traduce la probabilidad a banda, color, icono y veredicto textual."""
+    if probabilidad >= UMBRAL_GBM:
         return (
-            "alto",
+            "gbm",
             STATUS_CRITICAL,
             "🔴",
-            "Riesgo alto: el perfil se parece al de quienes efectivamente abandonaron.",
+            "Compatible con glioblastoma multiforme (GBM)",
         )
-    if probabilidad >= RIESGO_MEDIO:
+    if probabilidad >= UMBRAL_LGG:
         return (
-            "medio",
+            "incierto",
             STATUS_WARNING,
             "🟠",
-            "Riesgo moderado: hay señales de alerta que conviene atender pronto.",
+            "Zona de incertidumbre: el modelo no decide con confianza",
         )
     return (
-        "bajo",
+        "lgg",
         STATUS_GOOD,
         "🟢",
-        "Riesgo bajo: el perfil se parece al de quienes permanecen en la organización.",
+        "Compatible con glioma de bajo grado (LGG)",
     )
+
+
+def _registro(edad, genero, raza, genes_marcados: list[str]) -> dict:
+    """Construye el registro que espera el pipeline a partir del formulario."""
+    return {
+        "Age_at_diagnosis": float(edad) if edad is not None
+        else DEFAULT_INPUT["Age_at_diagnosis"],
+        "Gender": int(genero) if genero is not None else DEFAULT_INPUT["Gender"],
+        "Race": int(raza) if raza is not None else DEFAULT_INPUT["Race"],
+        **{gen: int(gen in genes_marcados) for gen in GENE_FEATURES},
+    }
 
 
 def _panel_resultado(registro: dict) -> html.Div:
     """Construye el panel de resultado a partir de un registro de entrada."""
-    probabilidad = predecir_abandono(registro)
-    nivel, color, icono, lectura = _clasificar(probabilidad)
-    base = tasa_abandono_global()
-    veces = probabilidad / base if base else 0
+    probabilidad = predecir_gbm(registro)
+    banda, color, icono, veredicto = _clasificar(probabilidad)
+    mutados = [gen for gen in GENE_FEATURES if registro[gen] == 1]
 
     return html.Div(
         [
@@ -196,28 +275,33 @@ def _panel_resultado(registro: dict) -> html.Div:
                         card(
                             [
                                 dcc.Graph(
-                                    figure=fig_gauge_riesgo(probabilidad),
+                                    figure=fig_gauge_probabilidad(probabilidad),
                                     config={"displayModeBar": False, "responsive": True},
                                 ),
                                 html.Div(
                                     [
                                         html.Span(icono, className="riesgo-icono"),
                                         html.Span(
-                                            f"Riesgo {nivel}",
+                                            veredicto,
                                             className="riesgo-nivel",
                                             style={"color": color},
                                         ),
                                     ],
                                     className="riesgo-badge",
                                 ),
-                                html.Div(lectura, className="riesgo-lectura"),
                                 html.Div(
-                                    f"Es {veces:.1f}× la tasa promedio de la organización "
-                                    f"({base:.1%}).",
+                                    f"Perfil evaluado: {registro['Age_at_diagnosis']:.1f} años · "
+                                    f"{GENDER_LABELS[registro['Gender']]} · "
+                                    f"{RACE_LABELS[registro['Race']]}",
+                                    className="riesgo-lectura",
+                                ),
+                                html.Div(
+                                    "Mutaciones marcadas: "
+                                    + (", ".join(mutados) if mutados else "ninguna"),
                                     className="riesgo-comparacion",
                                 ),
                             ],
-                            titulo="Probabilidad de abandono",
+                            titulo="Probabilidad estimada de GBM",
                             color=color,
                         ),
                         lg=5,
@@ -227,17 +311,18 @@ def _panel_resultado(registro: dict) -> html.Div:
                         card(
                             [
                                 dcc.Graph(
-                                    figure=fig_comparacion_perfil(registro),
+                                    figure=fig_contribuciones(registro),
                                     config={"displaylogo": False, "responsive": True},
                                 ),
                                 html.Div(
-                                    "Cada variable se expresa como percentil dentro de la "
-                                    "plantilla para poder compararlas en un mismo eje. El "
-                                    "rombo marca el perfil evaluado.",
+                                    "En un modelo lineal la predicción es la suma de estas "
+                                    "contribuciones más el intercepto, así que el desglose "
+                                    "no aproxima el razonamiento del modelo: es el "
+                                    "razonamiento del modelo.",
                                     className="graph-note",
                                 ),
                             ],
-                            titulo="El perfil frente a los promedios de cada grupo",
+                            titulo="Qué pesa en esta estimación",
                             color=SERIES[3],
                         ),
                         lg=7,
@@ -245,11 +330,39 @@ def _panel_resultado(registro: dict) -> html.Div:
                     ),
                 ]
             ),
-            card(
-                bullet_list(ACCIONES[nivel], color=color),
-                titulo="Acciones sugeridas",
-                subtitulo="Recomendaciones asociadas al nivel de riesgo estimado.",
-                color=color,
+            dbc.Row(
+                [
+                    dbc.Col(
+                        card(
+                            [
+                                dcc.Graph(
+                                    figure=fig_edad_vs_probabilidad(registro),
+                                    config={"displaylogo": False, "responsive": True},
+                                ),
+                                html.Div(
+                                    "Se mueve solo la edad y se mantiene fijo el resto del "
+                                    "perfil: es la pendiente de la edad para este perfil "
+                                    "genético concreto, no una curva promedio.",
+                                    className="graph-note",
+                                ),
+                            ],
+                            titulo="Cómo cambiaría la estimación con la edad",
+                            color=SERIES[2],
+                        ),
+                        lg=7,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        card(
+                            bullet_list(LECTURAS[banda], color=color),
+                            titulo="Lectura sugerida",
+                            subtitulo="Qué implica esta banda de probabilidad.",
+                            color=color,
+                        ),
+                        lg=5,
+                        className="mb-4",
+                    ),
+                ]
             ),
         ]
     )
@@ -263,18 +376,18 @@ def layout() -> html.Div:
     return html.Div(
         [
             page_header(
-                "Predicción de riesgo individual",
-                "Simulador en tiempo real: describe a un empleado y el modelo "
-                "estima su probabilidad de abandono.",
+                "Estimación del grado tumoral",
+                "Simulador en tiempo real: describe el perfil clínico y molecular de "
+                "un paciente y el modelo estima su probabilidad de glioblastoma.",
                 "🔮",
             ),
             callout(
-                "La predicción se calcula con el pipeline guardado en "
-                "model/model.pkl. El archivo incluye el escalado y la codificación "
-                "de categorías, por lo que el formulario envía los valores tal como "
-                "se introducen, sin transformaciones intermedias.",
+                "La estimación se calcula con el pipeline guardado en model/model.pkl. El "
+                "archivo incluye el escalado de la edad y la codificación de las variables "
+                "categóricas, por lo que el formulario envía los valores tal como se "
+                "introducen, sin transformaciones intermedias.",
                 titulo="Cómo funciona",
-                color=COLOR_PERMANECE,
+                color=COLOR_LGG,
             ),
             dbc.Row(
                 [
@@ -285,38 +398,35 @@ def layout() -> html.Div:
                     ),
                 ]
             ),
-            section_title("Umbrales de interpretación"),
+            section_title("Cómo leer la probabilidad"),
             dbc.Row(
                 [
                     dbc.Col(
-                        card(
-                            paragraph(texto),
-                            titulo=f"{icono}  {titulo}",
-                            color=color,
-                        ),
+                        card(paragraph(texto), titulo=f"{icono}  {titulo}", color=color),
                         lg=4,
                         className="mb-3",
                     )
                     for icono, titulo, texto, color in [
                         (
                             "🟢",
-                            f"Riesgo bajo · menos de {RIESGO_MEDIO:.0%}",
-                            "Seguimiento habitual. El perfil no presenta señales "
-                            "distintivas de salida.",
+                            f"Menos de {UMBRAL_LGG:.0%}",
+                            "Perfil compatible con LGG. El modelo clasifica con holgura "
+                            "por debajo de su umbral de decisión.",
                             STATUS_GOOD,
                         ),
                         (
                             "🟠",
-                            f"Riesgo medio · {RIESGO_MEDIO:.0%} a {RIESGO_ALTO:.0%}",
-                            "Atención preventiva. Conviene revisar carga de trabajo y "
-                            "expectativas de desarrollo.",
+                            f"Entre {UMBRAL_LGG:.0%} y {UMBRAL_GBM:.0%}",
+                            "Zona de incertidumbre. El clasificador decide en 0,50, pero "
+                            "aquí la decisión es frágil: es donde la secuenciación "
+                            "completa aporta más.",
                             STATUS_WARNING,
                         ),
                         (
                             "🔴",
-                            f"Riesgo alto · más de {RIESGO_ALTO:.0%}",
-                            "Intervención prioritaria. El perfil coincide con el patrón "
-                            "de quienes abandonaron.",
+                            f"Más de {UMBRAL_GBM:.0%}",
+                            "Perfil compatible con GBM. Conviene priorizar la confirmación "
+                            "diagnóstica.",
                             STATUS_CRITICAL,
                         ),
                     ]
@@ -324,11 +434,12 @@ def layout() -> html.Div:
                 className="g-3",
             ),
             callout(
-                "El resultado es una probabilidad estimada, no un diagnóstico. Debe "
-                "usarse para priorizar conversaciones, nunca como criterio único de "
-                "una decisión laboral sobre una persona.",
+                "El resultado es una probabilidad estimada por un modelo entrenado con 671 "
+                "pacientes, no un diagnóstico. No sustituye la histología, la imagen ni el "
+                "criterio médico, y no debe usarse como criterio único de una decisión "
+                "clínica sobre una persona.",
                 titulo="Uso responsable",
-                color=COLOR_ABANDONA,
+                color=COLOR_GBM,
             ),
         ],
         className="tab-content",
@@ -341,65 +452,34 @@ def layout() -> html.Div:
 @callback(
     Output(ID_RESULTADO, "children"),
     Input(ID_BOTON, "n_clicks"),
-    State(ID["edad"], "value"),
-    State(ID["salario"], "value"),
-    State(ID["anios_empresa"], "value"),
-    State(ID["departamento"], "value"),
-    State(ID["satisfaccion"], "value"),
-    State(ID["horas_trabajadas"], "value"),
-    State(ID["promociones"], "value"),
+    State(ID_EDAD, "value"),
+    State(ID_GENERO, "value"),
+    State(ID_RAZA, "value"),
+    State(ID_GENES_CLAVE, "value"),
+    State(ID_GENES_RESTO, "value"),
     prevent_initial_call=True,
 )
-def calcular_prediccion(
-    n_clicks,
-    edad,
-    salario,
-    anios_empresa,
-    departamento,
-    satisfaccion,
-    horas_trabajadas,
-    promociones,
-):
+def calcular_prediccion(n_clicks, edad, genero, raza, genes_clave, genes_resto):
     """Construye el registro, consulta el modelo y devuelve el panel de resultado."""
-    registro = {
-        "edad": edad if edad is not None else DEFAULT_INPUT["edad"],
-        "salario": salario if salario is not None else DEFAULT_INPUT["salario"],
-        "anios_empresa": anios_empresa
-        if anios_empresa is not None
-        else DEFAULT_INPUT["anios_empresa"],
-        "departamento": departamento or DEFAULT_INPUT["departamento"],
-        "satisfaccion": satisfaccion
-        if satisfaccion is not None
-        else DEFAULT_INPUT["satisfaccion"],
-        "horas_trabajadas": horas_trabajadas
-        if horas_trabajadas is not None
-        else DEFAULT_INPUT["horas_trabajadas"],
-        "promociones": promociones
-        if promociones is not None
-        else DEFAULT_INPUT["promociones"],
-    }
-    return _panel_resultado(registro)
+    marcados = [*(genes_clave or []), *(genes_resto or [])]
+    return _panel_resultado(_registro(edad, genero, raza, marcados))
 
 
 @callback(
-    Output(ID["edad"], "value"),
-    Output(ID["salario"], "value"),
-    Output(ID["anios_empresa"], "value"),
-    Output(ID["departamento"], "value"),
-    Output(ID["satisfaccion"], "value"),
-    Output(ID["horas_trabajadas"], "value"),
-    Output(ID["promociones"], "value"),
+    Output(ID_EDAD, "value"),
+    Output(ID_GENERO, "value"),
+    Output(ID_RAZA, "value"),
+    Output(ID_GENES_CLAVE, "value"),
+    Output(ID_GENES_RESTO, "value"),
     Input(ID_RESET, "n_clicks"),
     prevent_initial_call=True,
 )
 def restablecer_formulario(n_clicks):
-    """Devuelve el formulario a los valores del perfil promedio."""
+    """Devuelve el formulario al perfil por defecto (edad mediana, sin mutaciones)."""
     return (
-        DEFAULT_INPUT["edad"],
-        DEFAULT_INPUT["salario"],
-        DEFAULT_INPUT["anios_empresa"],
-        DEFAULT_INPUT["departamento"],
-        DEFAULT_INPUT["satisfaccion"],
-        DEFAULT_INPUT["horas_trabajadas"],
-        DEFAULT_INPUT["promociones"],
+        DEFAULT_INPUT["Age_at_diagnosis"],
+        DEFAULT_INPUT["Gender"],
+        DEFAULT_INPUT["Race"],
+        [],
+        [],
     )

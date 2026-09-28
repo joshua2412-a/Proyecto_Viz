@@ -1,0 +1,22 @@
+# Dependencias para compilar el Jupyter Book
+# Instalación:  pip install -r jbook/requirements.txt
+#
+# Con execute_notebooks: "off" (valor por defecto en _config.yml) basta con
+# jupyter-book y sphinx-design. Las librerías científicas solo son necesarias
+# si cambias la ejecución a "force" para recalcular las salidas.
+
+# <2 a propósito. Jupyter Book 2.x es un rediseño completo: corre sobre Node.js
+# en lugar de Sphinx y se configura con un archivo myst.yml, no con
+# _config.yml + _toc.yml. El sitio publicado en gh-pages está construido con la
+# línea 1.x (Sphinx + sphinx-book-theme), así que subir de versión cambiaría el
+# aspecto del libro y rompería esta configuración.
+jupyter-book>=1.0,<2
+sphinx-design>=0.5
+
+# --- Solo para reejecutar los notebooks ------------------------------------
+pandas>=2.0,<3.0
+numpy>=1.24
+scipy>=1.10
+scikit-learn>=1.3,<1.8
+matplotlib>=3.7
+seaborn>=0.13

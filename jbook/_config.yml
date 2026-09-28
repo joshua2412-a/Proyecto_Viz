@@ -1,0 +1,78 @@
+# Configuración del Jupyter Book
+# ---------------------------------------------------------------------------
+# Reconstruida a partir del sitio que estaba publicado en gh-pages de
+# Alej0126/Jbook_dataviz (un build de Jupyter Book no versiona su propia
+# configuración). El libro se publica ahora en gh-pages de este repositorio.
+#
+# Compilar:      jupyter-book build jbook/
+# Publicar:      python scripts/publicar_libro.py     (o ghp-import, ver README)
+# ---------------------------------------------------------------------------
+
+title: Caracterización Clínico-Molecular del Grado Tumoral en Gliomas
+author: Alejandro Cantillo Escorcia · Joshua Hincapie LLorente
+copyright: "2025"
+only_build_toc_files: true
+
+# ---------------------------------------------------------------------------
+# Ejecución de notebooks
+# ---------------------------------------------------------------------------
+# "off" publica las salidas ya guardadas en los .ipynb: el build es rápido y no
+# necesita el dataset ni las dependencias científicas. Cambia a "force" cuando
+# quieras recalcular todo desde cero (requiere dataset/TCGA_InfoWithGrade.csv).
+execute:
+  execute_notebooks: "off"
+  timeout: 600
+  allow_errors: false
+
+# ---------------------------------------------------------------------------
+# Extensiones de MyST (las mismas que usa el sitio publicado)
+# ---------------------------------------------------------------------------
+parse:
+  myst_enable_extensions:
+    - amsmath          # entornos LaTeX (align, gather...)
+    - dollarmath       # $...$ y $$...$$
+    - colon_fence      # bloques ::: para admoniciones
+    - deflist
+    - html_image
+    - linkify
+    - substitution
+    - tasklist
+
+# ---------------------------------------------------------------------------
+# Repositorio y botones de la barra superior
+# ---------------------------------------------------------------------------
+repository:
+  url: https://github.com/joshua2412-a/Proyecto_Viz
+  branch: main
+  path_to_book: jbook
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+  use_edit_page_button: false
+  home_page_in_navbar: true
+  baseurl: https://joshua2412-a.github.io/Proyecto_Viz/
+  # Dashboard desplegado en Cloud Run (misma URL que URL_DASHBOARD en
+  # utils/config.py).
+  extra_footer: |
+    <p>Dashboard interactivo del proyecto:
+    <a href="https://gliomas-dashboard-984926604434.us-central1.run.app">panel de visualización y predicción</a>.</p>
+
+launch_buttons:
+  thebe: true
+  colab_url: https://colab.research.google.com
+  notebook_interface: jupyterlab
+
+# ---------------------------------------------------------------------------
+# Extensiones de Sphinx adicionales
+# ---------------------------------------------------------------------------
+sphinx:
+  extra_extensions:
+    - sphinx_design
+  config:
+    html_show_copyright: true
+    language: es
+    mathjax3_config:
+      tex:
+        macros:
+          RR: "\\mathbb{R}"

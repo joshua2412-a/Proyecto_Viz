@@ -1,7 +1,7 @@
 """
-Pestaña 2 · Contexto
-Traduce la rotación laboral a impacto empresarial: coste, productividad y
-consecuencias organizativas.
+Pestaña 2 · Contexto clínico
+Qué son LGG y GBM, cómo se distribuyen en la cohorte y por qué la edad y el
+perfil molecular son la base del diagnóstico actual.
 """
 
 from __future__ import annotations
@@ -19,207 +19,198 @@ from utils.components import (
     page_header,
     paragraph,
     section_title,
+    series_chips,
 )
-from utils.data_loader import get_dataframe, tasa_por_departamento
-from utils.figures import fig_costo_departamento
-from utils.theme import COLOR_ABANDONA, COLOR_PERMANECE, SERIES
+from utils.data_loader import (
+    estadisticas_edad,
+    prueba_edad_por_grado,
+    tamanos_particion,
+)
+from utils.figures import fig_boxplot_edad, fig_distribucion_grado, fig_edad_por_grado
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
-# Supuesto de coste: reemplazar a alguien cuesta ~6 meses de su salario
-MESES_REEMPLAZO = 6
-
-# Dimensiones de impacto (cada una con su explicación)
-IMPACTOS = [
-    (
-        "💸",
-        "Coste directo de reemplazo",
-        "Publicación de vacantes, tiempo de selección, contratación, formación "
-        "inicial y curva de aprendizaje hasta alcanzar el rendimiento pleno.",
-    ),
-    (
-        "📉",
-        "Pérdida de productividad",
-        "La vacante abierta redistribuye la carga en el equipo: aumentan las "
-        "horas extra, se retrasan entregas y sube el riesgo de una segunda salida.",
-    ),
-    (
-        "🧠",
-        "Fuga de conocimiento",
-        "El conocimiento operativo no documentado —clientes, criterios, atajos— "
-        "sale por la puerta con la persona y rara vez se recupera.",
-    ),
-    (
-        "🤝",
-        "Impacto en clientes",
-        "En áreas de cara al cliente, la rotación rompe la continuidad de la "
-        "relación comercial y afecta directamente a la experiencia percibida.",
-    ),
-    (
-        "🌡️",
-        "Clima organizacional",
-        "Las salidas frecuentes se leen como señal de alarma interna y erosionan "
-        "el compromiso de quienes se quedan.",
-    ),
-    (
-        "🏷️",
-        "Marca empleadora",
-        "Una reputación de alta rotación encarece y alarga cada nueva "
-        "contratación en el mercado laboral.",
-    ),
-]
+AMBITO = "train"  # el EDA se describe sobre el conjunto de entrenamiento
 
 
-def _kpis_costo() -> list[dict]:
-    """Indicadores económicos derivados del dataset."""
-    df = get_dataframe()
-    salidas = df[df["abandono"] == 1]
-    costo_total = salidas["salario"].sum() * MESES_REEMPLAZO
-    costo_promedio = salidas["salario"].mean() * MESES_REEMPLAZO
-    nomina_anual = df["salario"].sum() * 12
+def _kpis() -> list[dict]:
+    """Indicadores clínicos de la cohorte de entrenamiento."""
+    edad = estadisticas_edad(AMBITO).set_index("grade_label")
+    prueba = prueba_edad_por_grado(AMBITO)
+    tamanos = tamanos_particion()
 
     return [
         {
-            "valor": f"{int(len(salidas)):,}",
-            "etiqueta": "Salidas en el periodo",
-            "detalle": f"de {len(df):,} empleados",
-            "color": SERIES[1],
+            "valor": f"{edad.loc['LGG', 'media']:.1f} años",
+            "etiqueta": "Edad media en LGG",
+            "detalle": f"± {edad.loc['LGG', 'desviacion']:.1f} · {int(edad.loc['LGG', 'pacientes'])} pacientes",
+            "color": COLOR_LGG,
         },
         {
-            "valor": f"${costo_total / 1_000_000_000:,.1f}MM",
-            "etiqueta": "Coste estimado de la rotación",
-            "detalle": f"{MESES_REEMPLAZO} meses de salario por salida",
-            "color": SERIES[1],
+            "valor": f"{edad.loc['GBM', 'media']:.1f} años",
+            "etiqueta": "Edad media en GBM",
+            "detalle": f"± {edad.loc['GBM', 'desviacion']:.1f} · {int(edad.loc['GBM', 'pacientes'])} pacientes",
+            "color": COLOR_GBM,
         },
         {
-            "valor": f"${costo_promedio / 1_000_000:,.1f}M",
-            "etiqueta": "Coste por salida",
-            "detalle": "Promedio en millones de COP",
+            "valor": f"{edad.loc['GBM', 'media'] - edad.loc['LGG', 'media']:.1f} años",
+            "etiqueta": "Diferencia de edad",
+            "detalle": "Mann-Whitney p < 0,0001" if prueba["p_valor"] < 0.0001
+            else f"Mann-Whitney p = {prueba['p_valor']:.4f}",
             "color": SERIES[3],
         },
         {
-            "valor": f"{costo_total / nomina_anual:.1%}",
-            "etiqueta": "Equivalente de la nómina anual",
-            "detalle": "Porción de nómina consumida por la rotación",
-            "color": SERIES[0],
+            "valor": f"{tamanos['train']}",
+            "etiqueta": "Cohorte descrita",
+            "detalle": f"Conjunto de entrenamiento de {tamanos['full']} pacientes",
+            "color": SERIES[2],
         },
     ]
 
 
-def _tabla_departamentos() -> dbc.Table:
-    """Tabla comparativa con el perfil económico de cada departamento."""
-    resumen = tasa_por_departamento()
-    filas = [
-        [
-            fila["departamento"],
-            f"{int(fila['empleados']):,}",
-            f"{int(fila['abandonos']):,}",
-            f"{fila['tasa']:.1%}",
-            f"${fila['salario_promedio'] / 1_000_000:,.2f}M",
-            f"{fila['satisfaccion_promedio']:.2f}",
-        ]
-        for _, fila in resumen.iterrows()
-    ]
-    return data_table(
-        [
-            "Departamento",
-            "Empleados",
-            "Salidas",
-            "Tasa de abandono",
-            "Salario promedio",
-            "Satisfacción promedio",
-        ],
-        filas,
-    )
-
-
 def layout() -> html.Div:
-    """Layout de la pestaña de contexto."""
+    """Layout de la pestaña de contexto clínico."""
     return html.Div(
         [
             page_header(
-                "Contexto e impacto empresarial",
-                "La rotación no es una métrica de recursos humanos: es una línea "
-                "del estado de resultados.",
-                "🏢",
+                "Contexto clínico: dos tumores con el mismo origen",
+                "Los gliomas nacen de las células gliales, pero LGG y GBM se "
+                "comportan de forma distinta y se diagnostican en edades distintas.",
+                "🧬",
             ),
-            kpi_row(_kpis_costo()),
-            callout(
-                f"Los importes asumen que reemplazar a una persona cuesta "
-                f"{MESES_REEMPLAZO} meses de su salario, un supuesto conservador "
-                "dentro del rango que suele citar la literatura de gestión humana "
-                "(entre 6 y 12 meses según la complejidad del puesto). El objetivo "
-                "no es la cifra exacta, sino el orden de magnitud del problema.",
-                titulo="Supuesto de cálculo",
-                color=SERIES[3],
-            ),
+            kpi_row(_kpis()),
             dbc.Row(
                 [
                     dbc.Col(
-                        graph_card(
-                            fig_costo_departamento(MESES_REEMPLAZO),
-                            "Coste estimado de la rotación por departamento",
-                            "Suma de los salarios de quienes abandonaron, "
-                            f"multiplicada por {MESES_REEMPLAZO} meses.",
+                        card(
+                            [
+                                paragraph(
+                                    "El glioma es un tumor que se origina en las células "
+                                    "gliales del sistema nervioso central. La Organización "
+                                    "Mundial de la Salud lo clasifica por grados según su "
+                                    "agresividad; en este proyecto la escala se reduce a la "
+                                    "distinción que más pesa en la decisión clínica:"
+                                ),
+                                bullet_list(
+                                    [
+                                        html.Span(
+                                            [
+                                                html.B("LGG · glioma de bajo grado. "),
+                                                "Crecimiento lento, supervivencia larga y "
+                                                "un tratamiento que puede ser conservador. "
+                                                "Aparece con más frecuencia en adultos "
+                                                "jóvenes y suele portar mutación en IDH1.",
+                                            ]
+                                        ),
+                                        html.Span(
+                                            [
+                                                html.B("GBM · glioblastoma multiforme. "),
+                                                "El glioma más agresivo: crecimiento "
+                                                "rápido, pronóstico corto y necesidad de "
+                                                "tratamiento intensivo inmediato. Se "
+                                                "concentra en edades avanzadas y presenta "
+                                                "alteraciones en PTEN, EGFR o TP53.",
+                                            ]
+                                        ),
+                                    ],
+                                    color=COLOR_LGG,
+                                ),
+                                paragraph(
+                                    "Hasta hace poco el grado se establecía por histología e "
+                                    "imagen. La clasificación actual incorpora el perfil "
+                                    "molecular porque dos tumores con el mismo aspecto al "
+                                    "microscopio pueden tener pronósticos muy distintos "
+                                    "según qué genes estén mutados."
+                                ),
+                                callout(
+                                    "Esa es la premisa del proyecto: si el perfil molecular "
+                                    "es lo que define el grado, un subconjunto pequeño de "
+                                    "marcadores debería bastar para clasificarlo.",
+                                    titulo="De la histología al perfil molecular",
+                                    color=SERIES[2],
+                                ),
+                            ],
+                            titulo="Qué distingue a LGG de GBM",
+                            color=COLOR_LGG,
                         ),
                         lg=7,
                         className="mb-4",
                     ),
                     dbc.Col(
-                        card(
-                            [
-                                paragraph(
-                                    "El coste no se reparte por igual. Las áreas con "
-                                    "salarios altos generan un impacto económico grande "
-                                    "incluso con tasas moderadas, mientras que las áreas "
-                                    "operativas lo generan por volumen de salidas."
-                                ),
-                                paragraph(
-                                    "Esa distinción importa para decidir dónde intervenir: "
-                                    "en un caso conviene retener perfiles concretos; en el "
-                                    "otro, revisar condiciones estructurales del puesto."
-                                ),
-                                bullet_list(
-                                    [
-                                        "Volumen alto + salario bajo → revisar condiciones del puesto.",
-                                        "Volumen bajo + salario alto → plan de retención individual.",
-                                        "Volumen alto + salario alto → prioridad máxima.",
-                                    ],
-                                    color=COLOR_ABANDONA,
-                                ),
-                            ],
-                            titulo="Cómo leer el gráfico",
-                            color=COLOR_ABANDONA,
+                        [
+                            graph_card(
+                                fig_distribucion_grado(AMBITO),
+                                "Composición de la cohorte",
+                                "Desbalance leve (ratio ≈ 1,4:1), no severo: no hace falta "
+                                "reponderar las clases.",
+                            ),
+                            html.Div(series_chips(), className="mt-3"),
+                        ],
+                        lg=5,
+                        className="mb-4",
+                    ),
+                ]
+            ),
+            section_title("La edad al diagnóstico separa a los dos grupos"),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        graph_card(
+                            fig_edad_por_grado(AMBITO),
+                            "Distribución de la edad por grado tumoral",
+                            "Porcentaje dentro de cada grado para que el tamaño distinto "
+                            "de los grupos no distorsione la comparación.",
+                        ),
+                        lg=7,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        graph_card(
+                            fig_boxplot_edad(AMBITO),
+                            "Rango y dispersión por grado",
+                            "Los puntos son valores atípicos dentro de cada grupo: casos de "
+                            "GBM inusualmente jóvenes y de LGG inusualmente mayores.",
                         ),
                         lg=5,
                         className="mb-4",
                     ),
                 ]
             ),
-            section_title("Seis formas en que la rotación afecta al negocio"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        card(
-                            [
-                                html.Div(icono, className="guide-icon"),
-                                html.Div(titulo, className="guide-name"),
-                                html.Div(texto, className="guide-text"),
-                            ],
-                            color=SERIES[i % len(SERIES)],
-                        ),
-                        lg=4,
-                        md=6,
-                        xs=12,
-                        className="mb-3",
-                    )
-                    for i, (icono, titulo, texto) in enumerate(IMPACTOS)
-                ],
-                className="g-3 mb-4",
-            ),
-            section_title("Radiografía por departamento"),
             card(
-                _tabla_departamentos(),
-                subtitulo="Ordenado de mayor a menor tasa de abandono.",
-                color=COLOR_PERMANECE,
+                [
+                    paragraph(
+                        "La separación es clínicamente relevante y estadísticamente "
+                        "significativa: el 75 % de los pacientes con LGG tiene 54,3 años o "
+                        "menos, mientras que el 75 % de los casos de GBM se diagnostica a "
+                        "partir de los 52,8 años. La prueba U de Mann-Whitney (elegida "
+                        "porque la edad no sigue una distribución normal: es bimodal, con "
+                        "picos cerca de los 35 y los 55 años) rechaza la hipótesis de "
+                        "igualdad de distribuciones con p < 0,0001."
+                    ),
+                    data_table(
+                        ["Grado", "Pacientes", "Media", "Mediana", "Q1 - Q3", "Rango"],
+                        [
+                            [
+                                fila["grade_label"],
+                                f"{int(fila['pacientes'])}",
+                                f"{fila['media']:.2f} ± {fila['desviacion']:.2f}",
+                                f"{fila['mediana']:.2f}",
+                                f"{fila['q1']:.2f} - {fila['q3']:.2f}",
+                                f"{fila['minimo']:.2f} - {fila['maximo']:.2f}",
+                            ]
+                            for _, fila in estadisticas_edad(AMBITO).iterrows()
+                        ],
+                    ),
+                    callout(
+                        "La edad es un correlato fuerte, no una causa: hay pacientes de 22 "
+                        "años con glioblastoma y de 87 con glioma de bajo grado. Sirve para "
+                        "estimar riesgo, nunca para descartar un diagnóstico.",
+                        titulo="Lectura prudente",
+                        color=COLOR_GBM,
+                    ),
+                ],
+                titulo="Edad al diagnóstico por grado tumoral",
+                subtitulo="Conjunto de entrenamiento · valores en años",
+                color=SERIES[3],
             ),
         ],
         className="tab-content",

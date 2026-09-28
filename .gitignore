@@ -9,11 +9,22 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 
-# Artefactos generados (se recrean con los scripts del proyecto)
-# Descomenta estas líneas si prefieres no versionar los artefactos:
-# data/employee_attrition.csv
-# model/model.pkl
-# model/metrics.json
+# Build del Jupyter Book (se regenera con jupyter-book build jbook/)
+jbook/_build/
+
+# Artefacto intermedio que 01_EDA pasa a 02_Baseline
+jbook/datos_modelado.pkl
+
+# NOTA: model/model.pkl y model/metrics.json SÍ se versionan a propósito.
+# App Engine tiene sistema de archivos de solo lectura y no podría entrenarlos
+# al arrancar. Tampoco se ignora dataset/TCGA_InfoWithGrade.csv: es la única
+# copia de los datos y el proyecto no funciona sin ella.
+
+# Variables de entorno: nunca se versionan (claves, tokens, credenciales)
+.env
+
+# Imágenes Docker exportadas con `docker save` (pesan cientos de MB)
+*.tar
 
 # Editores y sistema operativo
 .vscode/
