@@ -1,0 +1,18 @@
+# Finales de línea y tipos de archivo, para que el historial no se ensucie.
+#
+# El proyecto se trabaja en Windows y se despliega en Linux (contenedor). Sin
+# esto, un archivo generado en Windows entra al repositorio con CRLF y aparece
+# como "modificado por completo" la siguiente vez que se regenera en otro
+# sistema, aunque su contenido sea el mismo.
+
+# Artefactos generados por model/train_model.py
+model/metrics.json  text eol=lf
+model/model.pkl     binary
+
+# Fuente del proyecto
+*.py    text eol=lf
+*.ipynb text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.csv   text eol=lf
+Dockerfile text eol=lf

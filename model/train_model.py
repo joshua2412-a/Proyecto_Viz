@@ -237,7 +237,10 @@ def entrenar(buscar_hiperparametros: bool = False) -> dict:
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(pipeline, MODEL_PATH)
 
-    with open(METRICS_PATH, "w", encoding="utf-8") as archivo:
+    # newline="\n" a propósito: sin esto, Python en Windows escribe CRLF y git
+    # marca el archivo entero como modificado en cada reentrenamiento, aunque
+    # las métricas no hayan cambiado.
+    with open(METRICS_PATH, "w", encoding="utf-8", newline="\n") as archivo:
         json.dump(metricas, archivo, indent=2, ensure_ascii=False)
 
     return metricas
