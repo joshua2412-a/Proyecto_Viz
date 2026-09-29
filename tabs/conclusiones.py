@@ -1,12 +1,13 @@
 """
-Pestaña 10 · Conclusiones
-Qué quedó demostrado, qué significa para el objetivo de reducir el panel de
-secuenciación y qué falta por hacer.
+Pestaña 9 · Conclusiones
+Qué quedó establecido con el análisis exploratorio, qué significa para el
+objetivo de reducir el panel de secuenciación y qué falta por hacer.
 """
 
 from __future__ import annotations
 
 import dash_bootstrap_components as dbc
+import numpy as np
 from dash import html
 
 from utils.components import (
@@ -21,103 +22,118 @@ from utils.components import (
     section_title,
 )
 from utils.config import URL_LIBRO, URL_REPO_LIBRO
-from utils.data_loader import load_metrics
+from utils.data_loader import (
+    asociacion_con_grado,
+    estadisticas_edad,
+    matriz_asociacion_genes,
+    prevalencia_genes,
+    tamanos_particion,
+)
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 SIGUIENTES_PASOS = [
     (
-        "Contrastar contra modelos más complejos",
-        "Entrenar los demás baselines previstos (árboles, ensembles, redes) con la "
-        "misma partición y las mismas métricas, y comparar en las dos dimensiones: "
-        "error y coste computacional. Si el baseline lineal no queda por debajo, se "
-        "reporta así.",
+        "Abrir la fase de modelado",
+        "El proyecto cierra en el análisis exploratorio. El paso siguiente es "
+        "entrenar y contrastar clasificadores —regresión logística, árboles, "
+        "ensembles— sobre esta misma partición 80/20 y con las mismas métricas, "
+        "para después traer el resultado a este tablero.",
     ),
     (
         "Cuantificar el panel mínimo",
-        "Reentrenar con paneles progresivamente más pequeños (solo IDH1; IDH1 + edad; "
-        "los cinco genes con coeficiente no nulo) y medir cuánta AUC se pierde en "
-        "cada recorte. Es la respuesta directa al objetivo del proyecto.",
+        "Medir cuánta capacidad predictiva se pierde al recortar el panel: solo IDH1; "
+        "IDH1 más la edad; el subconjunto de marcadores con señal. Es la respuesta "
+        "directa al objetivo del proyecto y todavía no está cuantificada.",
     ),
     (
-        "Evaluar la calibración",
-        "Añadir curvas de calibración y, si hace falta, un calibrador, para que la "
-        "probabilidad que muestra el simulador pueda interpretarse como frecuencia "
-        "esperada y no solo como puntuación de riesgo.",
-    ),
-    (
-        "Completar el capítulo de preprocesamiento",
-        "El notebook de preprocesamiento quedó como borrador. Consolidar ahí las "
-        "decisiones que hoy están repartidas entre el EDA y el pipeline haría el "
-        "libro autocontenido.",
+        "Validar con una cohorte externa",
+        "Todo lo observado proviene de TCGA. Repetir los contrastes sobre una cohorte "
+        "independiente diría si estas asociaciones se sostienen fuera de esta muestra "
+        "o son particularidades suyas.",
     ),
 ]
 
 
 def _kpis() -> list[dict]:
-    """Las cuatro cifras que resumen el resultado del proyecto."""
-    metricas = load_metrics()
+    """Las cuatro cifras que resumen lo que encontró el análisis."""
+    asociacion = asociacion_con_grado("train")
+    edad = estadisticas_edad("train").set_index("grade_label")
+    tamanos = tamanos_particion()
+
+    matriz = matriz_asociacion_genes("train", top_n=12).values.copy()
+    np.fill_diagonal(matriz, 0.0)
+
+    idh1 = float(asociacion.set_index("variable").loc["IDH1", "rho"])
+    significativas = int(asociacion["significativa"].sum())
+
     return [
         {
-            "valor": f"{metricas['roc_auc']:.3f}",
-            "etiqueta": "AUC-ROC en prueba",
-            "detalle": "Capacidad de discriminación LGG vs GBM",
-            "color": SERIES[0],
+            "valor": f"{idh1:+.2f}",
+            "etiqueta": "Spearman de IDH1",
+            "detalle": "El marcador más discriminante, y de signo protector",
         },
         {
-            "valor": f"{metricas['recall']:.1%}",
-            "etiqueta": "Recall de GBM",
-            "detalle": "El error clínicamente más costoso, minimizado",
-            "color": SERIES[1],
+            "valor": f"{edad.loc['GBM', 'media'] - edad.loc['LGG', 'media']:.1f} años",
+            "etiqueta": "Brecha de edad",
+            "detalle": "Entre el diagnóstico de GBM y el de LGG",
         },
         {
-            "valor": f"{metricas['n_variables_activas']}",
-            "etiqueta": "Columnas que usa el modelo",
-            "detalle": f"De {metricas['n_columnas_modelo']} tras el preprocesamiento",
-            "color": SERIES[2],
+            "valor": f"{significativas} de {len(asociacion)}",
+            "etiqueta": "Variables con señal",
+            "detalle": f"Sobre {tamanos['train']} pacientes de entrenamiento",
         },
         {
-            "valor": f"{metricas['tiempos_segundos']['inferencia'] * 1000:.1f} ms",
-            "etiqueta": "Tiempo de inferencia",
-            "detalle": f"Para {metricas['n_test']} pacientes",
-            "color": SERIES[3],
+            "valor": f"{matriz.max():.2f}",
+            "etiqueta": "Redundancia máxima",
+            "detalle": "V de Cramér del par de genes más asociado (umbral: 0,70)",
         },
     ]
 
 
 def _tabla_hallazgos() -> dbc.Table:
-    """Hallazgos principales con su evidencia cuantitativa."""
+    """Hallazgos principales con su evidencia cuantitativa, calculada en vivo."""
+    asociacion = asociacion_con_grado("train").set_index("variable")
+    prevalencia = prevalencia_genes("train").set_index("gen")
+    edad = estadisticas_edad("train").set_index("grade_label")
+
+    idh1 = prevalencia.loc["IDH1"]
+    no_significativas = asociacion[~asociacion["significativa"]]
+
     return data_table(
         ["Hallazgo", "Evidencia", "Consecuencia"],
         [
             [
                 "IDH1 es el marcador dominante",
-                "r ≈ -0,70 con el grado · odds ratio 0,034 en el modelo",
-                "Su mutación reduce las probabilidades de GBM a una fracción mínima: "
-                "es casi por sí solo un clasificador.",
+                f"r = {asociacion.loc['IDH1', 'rho']:+.2f} · mutado en "
+                f"{idh1['LGG']:.1f}% de LGG frente a {idh1['GBM']:.1f}% de GBM",
+                "Su presencia es casi por sí sola una firma de glioma de bajo grado.",
             ],
             [
                 "La edad aporta señal clínica independiente",
-                "r ≈ +0,53 · odds ratio ≈ 1,95 por desviación estándar",
+                f"r = {asociacion.loc['Age_at_diagnosis', 'rho']:+.2f} · "
+                f"{edad.loc['GBM', 'media']:.1f} años de media en GBM frente a "
+                f"{edad.loc['LGG', 'media']:.1f} en LGG",
                 "Una variable que ya está en la historia clínica y no cuesta nada "
-                "medir mejora la clasificación.",
+                "medir discrimina casi tanto como una mutación.",
             ],
             [
                 "La mayoría del panel no discrimina el grado",
-                "Coeficiente exactamente cero tras la penalización L1",
+                f"{len(no_significativas)} de {len(asociacion)} variables sin "
+                "asociación apreciable (p ≥ 0,05 o |r| < 0,10)",
                 "Sostiene la hipótesis central: un panel reducido podría bastar para "
                 "decidir el grado.",
             ],
             [
                 "No hay multicolinealidad estructural",
                 "Ningún par de variables con V de Cramér > 0,70",
-                "Los marcadores retenidos pueden entrar juntos en el modelo sin "
-                "inestabilizar la estimación.",
+                "Los marcadores retenidos pueden entrar juntos en un modelo sin "
+                "inestabilizar la estimación de sus parámetros.",
             ],
             [
-                "El modelo se equivoca hacia el lado seguro",
-                "Recall GBM 0,93 frente a precisión 0,79",
-                "Sobre-detecta glioblastomas: marca casos de más antes que dejar "
-                "pasar un tumor agresivo.",
+                "El grupo racial no es interpretable aquí",
+                "Más del 90 % de la cohorte pertenece a una sola categoría",
+                "La asociación que aparece es un artefacto de composición de la "
+                "muestra, no un hallazgo biológico.",
             ],
         ],
     )
@@ -125,54 +141,51 @@ def _tabla_hallazgos() -> dbc.Table:
 
 def layout() -> html.Div:
     """Layout de la pestaña de conclusiones."""
-    metricas = load_metrics()
+    asociacion = asociacion_con_grado("train")
+    significativas = int(asociacion["significativa"].sum())
 
     return html.Div(
         [
             page_header(
                 "Conclusiones",
-                "Un modelo lineal con una edad y un puñado de mutaciones clasifica el "
-                "grado del glioma con solvencia, y dice cuáles son esas mutaciones.",
-                "✅",
+                "Un puñado de marcadores concentra casi toda la información sobre el "
+                "grado del tumor, y el análisis dice cuáles son.",
+                "bi-check2-circle",
             ),
             kpi_row(_kpis()),
             card(
                 [
                     paragraph(
-                        f"El clasificador alcanza un AUC-ROC de {metricas['roc_auc']:.3f} y "
-                        f"una accuracy de {metricas['accuracy']:.1%} sobre "
-                        f"{metricas['n_test']} pacientes que no intervinieron en el "
-                        "entrenamiento, con una diferencia mínima frente al AUC de "
-                        f"validación cruzada ({metricas['cv_auc_media']:.3f}): el desempeño "
-                        "es estable, no un artefacto de la partición."
+                        f"De las {len(asociacion)} variables disponibles, solo "
+                        f"{significativas} muestran una asociación con el grado que sea "
+                        "a la vez estadísticamente significativa y de magnitud "
+                        "apreciable. El resto aporta una varianza explicativa "
+                        "insignificante: no distingue a un glioma de bajo grado de un "
+                        "glioblastoma."
                     ),
                     paragraph(
-                        f"Lo relevante para el objetivo del proyecto no es esa cifra, sino "
-                        f"con cuánta información se consigue: la penalización L1 dejó "
-                        f"activas {metricas['n_variables_activas']} de "
-                        f"{metricas['n_columnas_modelo']} columnas. El modelo no solo clasifica; "
-                        "señala explícitamente qué parte del panel molecular está "
-                        "sosteniendo la decisión y qué parte no aporta nada al grado."
+                        "Ese es el resultado que importa para el objetivo del proyecto. "
+                        "No dice todavía cuánta precisión se conseguiría con un panel "
+                        "reducido —eso exige entrenar y comparar modelos— pero sí "
+                        "establece qué variables merecen entrar en esa comparación y "
+                        "cuáles se pueden descartar desde ya."
                     ),
                     callout(
-                        "La señal biológica que encuentra el modelo coincide con la "
-                        "literatura: IDH1 e IDH2 hacia LGG, TP53, PTEN y la edad hacia "
-                        "GBM. Que un modelo entrenado a ciegas reproduzca el conocimiento "
-                        "clínico establecido es la mejor validación disponible sin una "
-                        "cohorte externa.",
+                        "La señal que encuentran los contrastes coincide con la "
+                        "literatura clínica: IDH1 e IDH2 hacia LGG, y la edad, TP53 y "
+                        "PTEN hacia GBM. Que un análisis hecho a ciegas sobre los datos "
+                        "reproduzca el conocimiento médico establecido es la mejor "
+                        "validación disponible sin una cohorte externa.",
                         titulo="Coherencia con el conocimiento clínico",
-                        color=SERIES[2],
                     ),
                 ],
                 titulo="Resultado principal",
-                color=COLOR_LGG,
             ),
             section_title("Hallazgos y su evidencia"),
             card(
                 _tabla_hallazgos(),
                 titulo="Cinco hallazgos con respaldo cuantitativo",
-                subtitulo="Cifras del EDA sobre entrenamiento y del modelo sobre prueba",
-                color=SERIES[3],
+                subtitulo="Cifras calculadas sobre el conjunto de entrenamiento",
                 className="mb-4",
             ),
             section_title("Qué falta por hacer"),
@@ -182,7 +195,6 @@ def layout() -> html.Div:
                         card(
                             paragraph(descripcion),
                             titulo=titulo,
-                            color=SERIES[i % len(SERIES)],
                         ),
                         lg=6,
                         className="mb-3",
@@ -199,7 +211,8 @@ def layout() -> html.Div:
                             html.Span(
                                 [
                                     html.B("Jupyter Book: "),
-                                    "el análisis completo con su desarrollo estadístico. ",
+                                    "el análisis exploratorio completo con su desarrollo "
+                                    "estadístico. ",
                                     enlace_externo("Abrirlo", URL_LIBRO),
                                 ]
                             ),
@@ -207,24 +220,22 @@ def layout() -> html.Div:
                                 [
                                     html.B("Dashboard: "),
                                     "esta capa interactiva, con el EDA navegable y el "
-                                    "simulador de perfiles.",
+                                    "selector de conjunto de datos.",
                                 ]
                             ),
                             html.Span(
                                 [
                                     html.B("Código: "),
                                     "pipeline reproducible con una semilla fija, del CSV "
-                                    "al modelo entrenado. ",
-                                    enlace_externo("Repositorio del libro", URL_REPO_LIBRO),
+                                    "a los contrastes. ",
+                                    enlace_externo("Repositorio", URL_REPO_LIBRO),
                                 ]
                             ),
                         ],
-                        color=COLOR_GBM,
                     ),
                 ],
                 titulo="Entregables",
-                color=COLOR_GBM,
             ),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )

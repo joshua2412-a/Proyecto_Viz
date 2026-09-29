@@ -14,11 +14,11 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 from utils.theme import (
+    ACCENT_NEUTRAL,
     BG_SOFT,
     COLOR_GBM,
     COLOR_LGG,
     INK_MUTED,
-    SERIES,
 )
 
 
@@ -26,10 +26,19 @@ from utils.theme import (
 # Cabeceras y textos
 # --------------------------------------------------------------------------- #
 def page_header(titulo: str, subtitulo: str, icono: str = "") -> html.Div:
-    """Cabecera de pestaña: título grande + línea de contexto."""
+    """Cabecera de pestaña: título grande + línea de contexto.
+
+    `icono` es una clase de Bootstrap Icons (p. ej. "bi-bar-chart-line"), que ya
+    viene cargada en app.py. Se usa un set monocromo en vez de emoji para que el
+    color de la página siga reservado a los datos.
+    """
+    encabezado = []
+    if icono:
+        encabezado.append(html.I(className=f"bi {icono} page-icon"))
+    encabezado.append(html.Span(titulo))
     return html.Div(
         [
-            html.H2(f"{icono} {titulo}".strip(), className="page-title"),
+            html.H2(encabezado, className="page-title"),
             html.P(subtitulo, className="page-subtitle"),
             html.Hr(className="page-rule"),
         ],
@@ -48,8 +57,8 @@ def paragraph(texto) -> html.P:
     return html.P(texto, className="body-text")
 
 
-def bullet_list(items: Iterable, color: str = COLOR_LGG) -> html.Ul:
-    """Lista con viñetas coloreadas."""
+def bullet_list(items: Iterable, color: str = ACCENT_NEUTRAL) -> html.Ul:
+    """Lista con viñetas. El punto es neutro salvo que se pida otro color."""
     return html.Ul(
         [html.Li(item, className="body-text") for item in items],
         className="bullet-list",
@@ -86,7 +95,8 @@ def card(
         cuerpo.append(html.P(subtitulo, className="card-subtitle-custom"))
     cuerpo.append(html.Div(children))
 
-    estilo = {"borderTop": f"4px solid {color}"} if color else {}
+    # Sin color por defecto: el color del tablero esta reservado a los datos.
+    estilo = {"borderTop": f"2px solid {color}"} if color else {}
     return dbc.Card(
         dbc.CardBody(cuerpo),
         className=f"soft-card {className}".strip(),
@@ -94,18 +104,18 @@ def card(
     )
 
 
-def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = COLOR_LGG) -> dbc.Card:
+def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = ACCENT_NEUTRAL) -> dbc.Card:
     """Tarjeta de indicador: cifra protagonista + etiqueta + detalle opcional."""
     cuerpo = [
         html.Div(etiqueta.upper(), className="kpi-label"),
-        html.Div(valor, className="kpi-value", style={"color": color}),
+        html.Div(valor, className="kpi-value"),
     ]
     if detalle:
         cuerpo.append(html.Div(detalle, className="kpi-detail"))
     return dbc.Card(
         dbc.CardBody(cuerpo),
         className="soft-card kpi-card",
-        style={"borderLeft": f"5px solid {color}"},
+        style={"borderLeft": f"3px solid {color}"},
     )
 
 
@@ -120,7 +130,7 @@ def kpi_row(kpis: Sequence[dict], md: int = 3) -> dbc.Row:
     )
 
 
-def callout(texto, titulo: str | None = None, color: str = COLOR_GBM) -> html.Div:
+def callout(texto, titulo: str | None = None, color: str = ACCENT_NEUTRAL) -> html.Div:
     """Bloque destacado para ideas clave o advertencias."""
     hijos = []
     if titulo:
@@ -129,7 +139,7 @@ def callout(texto, titulo: str | None = None, color: str = COLOR_GBM) -> html.Di
     return html.Div(
         hijos,
         className="callout",
-        style={"borderLeft": f"5px solid {color}", "background": BG_SOFT},
+        style={"borderLeft": f"3px solid {color}", "background": BG_SOFT},
     )
 
 
@@ -192,6 +202,3 @@ def series_chips() -> html.Div:
         className="legend-chips",
     )
 
-
-# Paleta expuesta por comodidad para las pestañas que alternan colores pastel
-ACCENTS = SERIES

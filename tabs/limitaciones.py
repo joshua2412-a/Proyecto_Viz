@@ -17,7 +17,11 @@ from utils.components import (
     paragraph,
     section_title,
 )
-from utils.data_loader import distribucion_clinica, load_metrics, tamanos_particion
+from utils.data_loader import (
+    asociacion_con_grado,
+    distribucion_clinica,
+    tamanos_particion,
+)
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 LIMITACIONES = [
@@ -40,13 +44,14 @@ LIMITACIONES = [
         "Asociación, no causalidad",
         "Las pruebas de independencia y las correlaciones detectan asociación "
         "estadística. Que IDH1 mutado acompañe a los gliomas de bajo grado no "
-        "establece un mecanismo causal, y el modelo tampoco lo estima.",
+        "establece un mecanismo causal: la dirección del efecto y su explicación "
+        "biológica están fuera del alcance de estos contrastes.",
     ),
     (
-        "El modelo predice el grado, no el pronóstico",
+        "El análisis describe el grado, no el pronóstico",
         "La variable objetivo es la clasificación histológica LGG/GBM. Nada de lo "
-        "que estima este modelo habla de supervivencia, de respuesta al tratamiento "
-        "ni de progresión: son preguntas distintas que requieren otros datos y otro "
+        "que se observa aquí habla de supervivencia, de respuesta al tratamiento ni "
+        "de progresión: son preguntas distintas que requieren otros datos y otro "
         "diseño.",
     ),
     (
@@ -56,24 +61,24 @@ LIMITACIONES = [
         "mutado' pueden tener alteraciones biológicamente distintas.",
     ),
     (
-        "Es un baseline, no el modelo final",
-        "La regresión logística se eligió por interpretabilidad y como referencia "
-        "comparable con la literatura. El proyecto contempla contrastarla con "
-        "modelos más complejos; hasta que esa comparación esté hecha, estas cifras "
-        "son la cota de referencia, no el techo alcanzable.",
+        "Es un análisis exploratorio, no una capacidad predictiva medida",
+        "Saber que una variable se asocia al grado no dice cuánta precisión "
+        "aportaría en una clasificación real. Esa pregunta pertenece a la fase de "
+        "modelado, que queda fuera del alcance de este trabajo.",
     ),
     (
         "La reducción de costes es una hipótesis, no un resultado clínico",
-        "Que la penalización L1 deje en cero la mayoría de los genes sugiere que un "
+        "Que la mayoría de los genes no muestre asociación con el grado sugiere que un "
         "panel más pequeño bastaría para clasificar el grado. Validar eso exige un "
         "estudio prospectivo con el panel reducido, no solo un modelo entrenado "
         "sobre datos históricos.",
     ),
     (
-        "Ausencia de calibración evaluada",
-        "Se reportan métricas de discriminación (AUC, recall, precisión), pero no se "
-        "evaluó la calibración de las probabilidades. Una probabilidad del 70 % no "
-        "está verificada como equivalente a un 70 % de casos reales de GBM.",
+        "Contrastes múltiples sin corrección",
+        "Se contrastan 23 variables contra el grado por separado. Con ese número de "
+        "pruebas, alguna significancia puede aparecer por azar; no se aplicó una "
+        "corrección tipo Bonferroni. Las asociaciones fuertes no se ven afectadas, "
+        "pero las que rozan el umbral conviene tomarlas con cautela.",
     ),
 ]
 
@@ -102,8 +107,8 @@ def _tabla_representatividad() -> dbc.Table:
 
 def layout() -> html.Div:
     """Layout de la pestaña de limitaciones."""
-    metricas = load_metrics()
     tamanos = tamanos_particion()
+    asociacion = asociacion_con_grado("train")
 
     return html.Div(
         [
@@ -111,15 +116,15 @@ def layout() -> html.Div:
                 "Limitaciones",
                 "Ocho fronteras del trabajo, declaradas antes de que alguien las "
                 "encuentre leyendo las cifras con demasiada confianza.",
-                "⚠️",
+                "bi-exclamation-triangle",
             ),
             callout(
                 f"Todo lo que se afirma aquí se sostiene sobre {tamanos['full']} pacientes "
-                f"de una sola fuente, con {metricas['n_test']} de ellos usados para medir "
-                "el desempeño. Es una muestra suficiente para un baseline y pequeña para "
-                "una afirmación clínica.",
+                f"de una sola fuente, y los {len(asociacion)} contrastes se calculan "
+                f"sobre los {tamanos['train']} del conjunto de entrenamiento. Es una muestra "
+                "suficiente para orientar decisiones de análisis y pequeña para una "
+                "afirmación clínica.",
                 titulo="El tamaño manda",
-                color=COLOR_GBM,
             ),
             dbc.Row(
                 [
@@ -127,7 +132,6 @@ def layout() -> html.Div:
                         card(
                             paragraph(descripcion),
                             titulo=titulo,
-                            color=SERIES[i % len(SERIES)],
                         ),
                         lg=6,
                         className="mb-3",
@@ -148,15 +152,13 @@ def layout() -> html.Div:
                     _tabla_representatividad(),
                 ],
                 titulo="Composición de la cohorte por grupo racial",
-                color=COLOR_LGG,
             ),
             callout(
                 "Un dashboard que estima probabilidades sobre personas tiene que decir con "
                 "la misma claridad qué no sabe. Esa es la función de esta pestaña: no es un "
                 "trámite académico, es parte del resultado.",
                 titulo="Por qué esta pestaña existe",
-                color=SERIES[2],
             ),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )

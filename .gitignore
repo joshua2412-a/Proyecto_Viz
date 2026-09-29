@@ -12,13 +12,12 @@ __pycache__/
 # Build del Jupyter Book (se regenera con jupyter-book build jbook/)
 jbook/_build/
 
-# Artefacto intermedio que 01_EDA pasa a 02_Baseline
+# Artefacto intermedio que todavia escribe 01_EDA y que ya nadie lee
 jbook/datos_modelado.pkl
+datos_modelado.pkl
 
-# NOTA: model/model.pkl y model/metrics.json SÍ se versionan a propósito.
-# App Engine tiene sistema de archivos de solo lectura y no podría entrenarlos
-# al arrancar. Tampoco se ignora dataset/TCGA_InfoWithGrade.csv: es la única
-# copia de los datos y el proyecto no funciona sin ella.
+# NOTA: no se ignora dataset/TCGA_InfoWithGrade.csv: es la unica copia de los
+# datos y el proyecto no funciona sin ella.
 
 # Variables de entorno: nunca se versionan (claves, tokens, credenciales)
 .env

@@ -1,15 +1,8 @@
-# Tabla de contenido del Jupyter Book
-# Formato: https://jupyterbook.org/customize/toc.html
-#
-# `intro` es la portada (el `{tableofcontents}` de intro.md lista estos capítulos).
-# El antiguo EDA.html publicado en gh-pages era una versión previa de 01_EDA y
-# no se incluye; Preprocesamiento.ipynb era un borrador vacío y tampoco.
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
 
 format: jb-book
 root: intro
-
 chapters:
-  - file: 01_EDA
-    title: Análisis exploratorio (EDA)
-  - file: 02_Baseline
-    title: Modelado · baseline de referencia
+- file: 01_EDA
+  title: Análisis Exploratorio de Datos (EDA)

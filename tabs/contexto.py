@@ -43,26 +43,22 @@ def _kpis() -> list[dict]:
             "valor": f"{edad.loc['LGG', 'media']:.1f} años",
             "etiqueta": "Edad media en LGG",
             "detalle": f"± {edad.loc['LGG', 'desviacion']:.1f} · {int(edad.loc['LGG', 'pacientes'])} pacientes",
-            "color": COLOR_LGG,
         },
         {
             "valor": f"{edad.loc['GBM', 'media']:.1f} años",
             "etiqueta": "Edad media en GBM",
             "detalle": f"± {edad.loc['GBM', 'desviacion']:.1f} · {int(edad.loc['GBM', 'pacientes'])} pacientes",
-            "color": COLOR_GBM,
         },
         {
             "valor": f"{edad.loc['GBM', 'media'] - edad.loc['LGG', 'media']:.1f} años",
             "etiqueta": "Diferencia de edad",
             "detalle": "Mann-Whitney p < 0,0001" if prueba["p_valor"] < 0.0001
             else f"Mann-Whitney p = {prueba['p_valor']:.4f}",
-            "color": SERIES[3],
         },
         {
             "valor": f"{tamanos['train']}",
             "etiqueta": "Cohorte descrita",
             "detalle": f"Conjunto de entrenamiento de {tamanos['full']} pacientes",
-            "color": SERIES[2],
         },
     ]
 
@@ -75,7 +71,7 @@ def layout() -> html.Div:
                 "Contexto clínico: dos tumores con el mismo origen",
                 "Los gliomas nacen de las células gliales, pero LGG y GBM se "
                 "comportan de forma distinta y se diagnostican en edades distintas.",
-                "🧬",
+                "bi-heart-pulse",
             ),
             kpi_row(_kpis()),
             dbc.Row(
@@ -112,7 +108,6 @@ def layout() -> html.Div:
                                             ]
                                         ),
                                     ],
-                                    color=COLOR_LGG,
                                 ),
                                 paragraph(
                                     "Hasta hace poco el grado se establecía por histología e "
@@ -126,11 +121,9 @@ def layout() -> html.Div:
                                     "es lo que define el grado, un subconjunto pequeño de "
                                     "marcadores debería bastar para clasificarlo.",
                                     titulo="De la histología al perfil molecular",
-                                    color=SERIES[2],
                                 ),
                             ],
                             titulo="Qué distingue a LGG de GBM",
-                            color=COLOR_LGG,
                         ),
                         lg=7,
                         className="mb-4",
@@ -205,13 +198,11 @@ def layout() -> html.Div:
                         "años con glioblastoma y de 87 con glioma de bajo grado. Sirve para "
                         "estimar riesgo, nunca para descartar un diagnóstico.",
                         titulo="Lectura prudente",
-                        color=COLOR_GBM,
                     ),
                 ],
                 titulo="Edad al diagnóstico por grado tumoral",
                 subtitulo="Conjunto de entrenamiento · valores en años",
-                color=SERIES[3],
             ),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )

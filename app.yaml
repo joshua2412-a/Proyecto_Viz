@@ -8,16 +8,15 @@
 # `app:server` es el objeto Flask que expone app.py (server = app.server), que
 # es lo que gunicorn necesita: Dash por sí solo no es una aplicación WSGI.
 #
-# Importante: el modelo se entrena al arrancar si falta model/model.pkl, y en
-# App Engine el sistema de archivos es de solo lectura. Versiona model/model.pkl
-# y model/metrics.json (o entrénalos antes de desplegar) para que el arranque no
-# tenga que escribir nada.
+# El dashboard solo lee dataset/TCGA_InfoWithGrade.csv y no escribe nada en
+# disco, así que el sistema de archivos de solo lectura de App Engine no supone
+# ningún problema. Basta con que el CSV esté versionado.
 
 runtime: python312
 
-# Un solo worker con varios hilos: cada worker carga pandas, scikit-learn y su
-# propia copia del modelo (~200 MB), así que dos workers no caben en una F2.
-# Los hilos bastan porque el trabajo del dashboard es de espera, no de CPU.
+# Un solo worker con varios hilos: cada worker carga su propia copia de pandas,
+# scipy y el dataset, así que dos workers duplicarían la memoria sin aportar
+# nada. Los hilos bastan porque el trabajo del dashboard es de espera, no de CPU.
 entrypoint: gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 --preload app:server
 
 # F2 = 512 MB. La cuota gratuita diaria de App Engine (28 horas-instancia) es de

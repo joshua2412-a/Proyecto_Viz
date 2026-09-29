@@ -1,12 +1,13 @@
 """
 Pestaña 4 · Objetivos
 Objetivo general, objetivos específicos y criterios con los que se considera
-que el proyecto cumplió.
+que el análisis exploratorio cumplió su papel.
 """
 
 from __future__ import annotations
 
 import dash_bootstrap_components as dbc
+import numpy as np
 from dash import html
 
 from utils.components import (
@@ -16,7 +17,12 @@ from utils.components import (
     paragraph,
     section_title,
 )
-from utils.data_loader import load_metrics
+from utils.data_loader import (
+    asociacion_con_grado,
+    get_dataframe,
+    matriz_asociacion_genes,
+    proporcion_grado,
+)
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 OBJETIVOS_ESPECIFICOS = [
@@ -29,6 +35,13 @@ OBJETIVOS_ESPECIFICOS = [
     ),
     (
         "2",
+        "Reservar un conjunto de prueba antes de mirar nada",
+        "Separar el 20 % de los pacientes con una partición estratificada antes de "
+        "calcular el primer estadístico, para que ninguna decisión tomada durante el "
+        "análisis esté contaminada por los datos con los que se evaluará después.",
+    ),
+    (
+        "3",
         "Medir la asociación de cada variable con el grado",
         "Contrastar cada predictora contra el grado tumoral con la prueba adecuada a "
         "su naturaleza (Mann-Whitney para la edad, chi-cuadrado y V de Cramér para "
@@ -36,69 +49,77 @@ OBJETIVOS_ESPECIFICOS = [
         "discriminativa.",
     ),
     (
-        "3",
+        "4",
         "Descartar redundancia entre marcadores",
         "Evaluar la co-ocurrencia entre mutaciones para detectar multicolinealidad y "
-        "confirmar que el conjunto retenido puede entrar completo en un modelo lineal "
-        "sin inestabilidad en la estimación de los coeficientes.",
-    ),
-    (
-        "4",
-        "Construir un clasificador interpretable de referencia",
-        "Entrenar una regresión logística con búsqueda de hiperparámetros y "
-        "validación cruzada estratificada, y traducir sus coeficientes a odds ratios "
-        "para poder discutirlos clínicamente.",
+        "confirmar que el conjunto retenido puede entrar completo en un modelo "
+        "posterior sin inestabilidad en la estimación de los parámetros.",
     ),
     (
         "5",
-        "Evaluar con métricas sensibles al contexto clínico",
-        "Reportar accuracy, precisión, recall, F1 y AUC-ROC sobre un conjunto de "
-        "prueba reservado, prestando especial atención al recall de GBM: dejar pasar "
-        "un tumor agresivo es el error más costoso.",
+        "Delimitar el panel que merece la pena secuenciar",
+        "Separar las variables que aportan señal sobre el grado de las que no, para "
+        "sostener con evidencia la hipótesis de que un panel más pequeño bastaría "
+        "para la decisión clínica.",
     ),
     (
         "6",
         "Poner el análisis a disposición de otros",
         "Publicar el desarrollo completo como Jupyter Book y una capa interactiva "
-        "—este dashboard— que permita explorar el EDA y simular perfiles de paciente "
-        "sin tocar el código.",
+        "—este dashboard— que permita explorar el EDA sin tocar el código.",
     ),
 ]
 
 
 def _tabla_criterios() -> dbc.Table:
-    """Criterios de cumplimiento contrastados con las métricas obtenidas."""
-    metricas = load_metrics()
+    """Criterios de cumplimiento contrastados con los datos, en vivo."""
+    df = get_dataframe("full")
+    asociacion = asociacion_con_grado("train")
+    matriz = matriz_asociacion_genes("train", top_n=12)
+    significativas = int(asociacion["significativa"].sum())
+
+    nulos = int(df.isnull().sum().sum())
+    rho_maximo = float(asociacion["rho"].abs().max())
+
+    # Diferencia de composición entre entrenamiento y prueba (en puntos)
+    gbm_train = proporcion_grado("train").set_index("grado").loc["GBM", "porcentaje"]
+    gbm_test = proporcion_grado("test").set_index("grado").loc["GBM", "porcentaje"]
+    brecha = abs(gbm_train - gbm_test)
+
+    # V de Cramér máxima entre pares distintos de genes
+    valores = matriz.values.copy()
+    np.fill_diagonal(valores, 0.0)
+    v_maxima = float(valores.max())
+
     filas = [
         [
-            "AUC-ROC en prueba ≥ 0,85",
-            f"{metricas['roc_auc']:.3f}",
-            "Cumple" if metricas["roc_auc"] >= 0.85 else "No cumple",
+            "Dataset sin valores faltantes",
+            f"{nulos} nulos en {df.shape[0]} × {df.shape[1] - 3} celdas",
+            "Cumple" if nulos == 0 else "Revisar",
         ],
         [
-            "Recall de GBM ≥ 0,85",
-            f"{metricas['recall']:.3f}",
-            "Cumple" if metricas["recall"] >= 0.85 else "No cumple",
+            "La estratificación conserva la proporción de clases",
+            f"GBM: {gbm_train:.1f}% en entrenamiento y {gbm_test:.1f}% en prueba "
+            f"({brecha:.1f} puntos de diferencia)",
+            "Cumple" if brecha < 2 else "Revisar",
         ],
         [
-            "Accuracy en prueba ≥ 0,80",
-            f"{metricas['accuracy']:.3f}",
-            "Cumple" if metricas["accuracy"] >= 0.80 else "No cumple",
+            "Al menos un marcador con asociación fuerte (|r| ≥ 0,50)",
+            f"El máximo observado es |r| = {rho_maximo:.2f}",
+            "Cumple" if rho_maximo >= 0.50 else "No cumple",
         ],
         [
-            "Modelo interpretable variable a variable",
-            f"{metricas['n_variables_activas']} columnas activas de {metricas['n_columnas_modelo']}",
-            "Cumple",
+            "Sin multicolinealidad estructural (V de Cramér < 0,70)",
+            f"El par de genes más asociado llega a V = {v_maxima:.2f}",
+            "Cumple" if v_maxima < 0.70 else "Revisar",
         ],
         [
-            "Estabilidad entre validación cruzada y prueba",
-            f"AUC CV {metricas['cv_auc_media']:.3f} ± {metricas['cv_auc_desviacion']:.3f}",
-            "Cumple"
-            if abs(metricas["cv_auc_media"] - metricas["roc_auc"]) < 0.05
-            else "Revisar",
+            "El panel se puede reducir: no todas las variables aportan",
+            f"{significativas} de {len(asociacion)} variables muestran señal",
+            "Cumple" if significativas < len(asociacion) else "No cumple",
         ],
     ]
-    return data_table(["Criterio", "Resultado obtenido", "Estado"], filas)
+    return data_table(["Criterio", "Resultado observado", "Estado"], filas)
 
 
 def layout() -> html.Div:
@@ -109,7 +130,7 @@ def layout() -> html.Div:
                 "Objetivos del proyecto",
                 "Qué se propone construir, con qué pasos y con qué criterio se "
                 "considera suficiente el resultado.",
-                "🎯",
+                "bi-bullseye",
             ),
             card(
                 [
@@ -121,14 +142,19 @@ def layout() -> html.Div:
                         "innecesarias."
                     ),
                     paragraph(
-                        "El énfasis está en la palabra óptimo: no se busca el modelo más "
-                        "complejo, sino el que consiga una precisión clínicamente útil con "
-                        "la menor cantidad de información molecular posible y con un "
-                        "razonamiento que un especialista pueda auditar."
+                        "El énfasis está en la palabra óptimo: no se busca la mayor "
+                        "cantidad de información posible, sino la mínima que sostenga la "
+                        "decisión clínica. Este tablero cubre la fase que responde esa "
+                        "pregunta: cuáles de las 23 variables disponibles se relacionan de "
+                        "verdad con el grado del tumor, y con qué fuerza."
+                    ),
+                    paragraph(
+                        "La fase de modelado, que traduciría esos hallazgos en un "
+                        "clasificador, es el paso siguiente y queda fuera del alcance "
+                        "de esta entrega."
                     ),
                 ],
                 titulo="Objetivo general",
-                color=COLOR_LGG,
             ),
             section_title("Objetivos específicos"),
             dbc.Row(
@@ -140,7 +166,6 @@ def layout() -> html.Div:
                                 html.Div(titulo, className="guide-name"),
                                 html.Div(descripcion, className="guide-text"),
                             ],
-                            color=SERIES[i % len(SERIES)],
                             className="guide-card",
                         ),
                         lg=4,
@@ -158,18 +183,16 @@ def layout() -> html.Div:
             card(
                 [
                     paragraph(
-                        "Los umbrales se fijaron antes de entrenar, tomando como referencia "
-                        "el desempeño que reporta la literatura de clasificación de grado "
-                        "tumoral en gliomas con variables clínicas y mutacionales. La "
-                        "columna de resultado se calcula en vivo a partir de "
-                        "model/metrics.json, así que se actualiza sola al reentrenar."
+                        "Cada criterio se comprueba contra los datos cada vez que se abre "
+                        "esta pestaña, no contra una cifra escrita a mano. Si mañana se "
+                        "reemplaza el dataset, la tabla se recalcula y delata cualquier "
+                        "supuesto que haya dejado de cumplirse."
                     ),
                     _tabla_criterios(),
                 ],
                 titulo="Estado frente a los criterios definidos",
-                subtitulo="Métricas sobre el conjunto de prueba reservado (168 pacientes)",
-                color=COLOR_GBM,
+                subtitulo="Calculado en vivo sobre el dataset del proyecto",
             ),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )

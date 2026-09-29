@@ -10,7 +10,8 @@
 # _config.yml + _toc.yml. El sitio publicado en gh-pages está construido con la
 # línea 1.x (Sphinx + sphinx-book-theme), así que subir de versión cambiaría el
 # aspecto del libro y rompería esta configuración.
-jupyter-book>=1.0,<2
+jupyter-book==1.0.4.post1
+sphinx-book-theme==1.1.4
 sphinx-design>=0.5
 
 # --- Solo para reejecutar los notebooks ------------------------------------

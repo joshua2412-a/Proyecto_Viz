@@ -33,9 +33,8 @@ vacío.
 ## Después de colocar el archivo
 
 ```bash
-python model/train_model.py   # entrena y guarda model/model.pkl + metrics.json
-python app.py                 # http://127.0.0.1:8050
+python app.py                 # http://127.0.0.1:8080
 ```
 
-`app.py` entrena el modelo automáticamente la primera vez si el `.pkl` no
-existe, así que el segundo comando basta.
+No hace falta nada más: la app solo lee este CSV. Si el archivo no está, arranca
+igual y cada pestaña con datos avisa de que falta.

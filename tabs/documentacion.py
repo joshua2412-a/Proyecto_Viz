@@ -25,34 +25,26 @@ from utils.components import (
 from utils.config import (
     URL_LIBRO,
     URL_LIBRO_EDA,
-    URL_LIBRO_MODELO,
     URL_REPO_LIBRO,
 )
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 CAPITULOS = [
     (
-        "📕",
+        "bi-file-earmark-text",
         "Portada e introducción",
         "Planteamiento del problema clínico y ficha técnica del dataset.",
         URL_LIBRO,
     ),
     (
-        "📊",
+        "bi-bar-chart-line",
         "Análisis exploratorio",
         "Univariado, bivariado, pruebas de hipótesis y diagnóstico de "
         "multicolinealidad, con el desarrollo completo de cada prueba.",
         URL_LIBRO_EDA,
     ),
     (
-        "🤖",
-        "Modelado · baseline",
-        "Preprocesamiento, búsqueda de hiperparámetros, evaluación en prueba e "
-        "interpretación de los coeficientes.",
-        URL_LIBRO_MODELO,
-    ),
-    (
-        "💻",
+        "bi-code-slash",
         "Repositorio",
         "Código fuente del libro y del sitio publicado en GitHub Pages.",
         URL_REPO_LIBRO,
@@ -66,26 +58,25 @@ def layout() -> html.Div:
         [
             page_header(
                 "Documentación del proyecto",
-                "El dashboard resume; el libro demuestra. Aquí está el análisis "
-                "completo, con cada prueba estadística y su justificación.",
-                "📖",
+                "El dashboard cubre el análisis exploratorio; el libro lo demuestra "
+                "paso a paso, con el desarrollo de cada prueba.",
+                "bi-book",
             ),
             dbc.Row(
                 [
                     dbc.Col(
                         card(
                             [
-                                html.Div(icono, className="guide-icon"),
+                                html.Div(html.I(className=f"bi {icono}"), className="guide-icon"),
                                 html.Div(titulo, className="guide-name"),
                                 html.Div(descripcion, className="guide-text"),
                                 html.Div(
                                     enlace_externo("Abrir", url), className="mt-2"
                                 ),
                             ],
-                            color=SERIES[i % len(SERIES)],
                             className="guide-card",
                         ),
-                        lg=3,
+                        lg=4,
                         md=6,
                         xs=12,
                         className="mb-3",
@@ -124,10 +115,11 @@ def layout() -> html.Div:
                                         ),
                                         html.Span(
                                             [
-                                                html.B("model/train_model.py "),
-                                                "reproduce el mismo pipeline del notebook "
-                                                "de modelado, con la misma semilla y los "
-                                                "mismos hiperparámetros.",
+                                                html.B("utils/ "),
+                                                "es la única puerta de entrada a los "
+                                                "datos: carga el CSV, reconstruye la "
+                                                "partición y calcula los contrastes que "
+                                                "consumen las pestañas.",
                                             ]
                                         ),
                                         html.Span(
@@ -138,18 +130,15 @@ def layout() -> html.Div:
                                             ]
                                         ),
                                     ],
-                                    color=COLOR_LGG,
                                 ),
                                 callout(
-                                    "Si cambia el dataset, basta reentrenar y recompilar: "
-                                    "las cifras del dashboard se recalculan solas y las del "
-                                    "libro se regeneran al compilar con ejecución forzada.",
+                                    "Si cambia el dataset, basta recompilar: las cifras del "
+                                    "dashboard se recalculan solas y las del libro se "
+                                    "regeneran al compilar con ejecución forzada.",
                                     titulo="Una sola fuente de verdad",
-                                    color=SERIES[2],
                                 ),
                             ],
                             titulo="Arquitectura del proyecto",
-                            color=COLOR_LGG,
                         ),
                         lg=6,
                         className="mb-4",
@@ -177,7 +166,6 @@ def layout() -> html.Div:
                                 ),
                             ],
                             titulo="Compilar y publicar",
-                            color=COLOR_GBM,
                         ),
                         lg=6,
                         className="mb-4",
@@ -209,8 +197,7 @@ def layout() -> html.Div:
                 ],
                 titulo="Vista embebida",
                 subtitulo="Versión publicada en GitHub Pages",
-                color=SERIES[3],
             ),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )

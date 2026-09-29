@@ -11,7 +11,7 @@ El proyecto se entrega en dos piezas que comparten una única copia de los datos
 
 | Pieza | Qué es | Dónde vive |
 |---|---|---|
-| **Dashboard** | Capa interactiva: EDA navegable y simulador de perfiles | raíz del repositorio · Dash + Plotly |
+| **Dashboard** | Capa interactiva: el EDA navegable y el marco del proyecto | raíz del repositorio · Dash + Plotly |
 | **Jupyter Book** | Análisis completo con su desarrollo estadístico | `jbook/` · publicado en [GitHub Pages](https://joshua2412-a.github.io/Proyecto_Viz/) |
 
 **Autores:** Alejandro Cantillo Escorcia · Joshua Hincapie LLorente
@@ -30,25 +30,21 @@ Proyecto_Viz/
 ├── dataset/
 │   ├── README.md           # Cómo obtener el CSV y esquema esperado
 │   └── TCGA_InfoWithGrade.csv   # ← única copia de los datos (no versionada por defecto)
-├── model/
-│   ├── train_model.py      # Entrena y persiste (mismo pipeline que el notebook)
-│   ├── model.pkl           # Pipeline entrenado (se genera)
-│   └── metrics.json        # Métricas del conjunto de prueba (se genera)
 ├── utils/
 │   ├── config.py           # Rutas, esquema TCGA, etiquetas, umbrales, enlaces
 │   ├── theme.py            # Paleta validada y plantilla de Plotly
-│   ├── data_loader.py      # Carga de datos y modelo + estadística descriptiva
+│   ├── data_loader.py      # Carga del dataset + estadística descriptiva
 │   ├── figures.py          # Constructores de todas las figuras
 │   └── components.py       # Componentes de interfaz reutilizables
 ├── tabs/                   # Una pestaña por archivo, cada una con su layout()
-│   ├── introduccion.py     ├── metodologia.py     ├── limitaciones.py
-│   ├── contexto.py         ├── resultados.py      ├── conclusiones.py
-│   ├── problema.py         ├── prediccion.py      └── documentacion.py
-│   ├── objetivos.py        └── marco_teorico.py
+│   ├── introduccion.py     ├── marco_teorico.py   ├── limitaciones.py
+│   ├── contexto.py         ├── metodologia.py     ├── conclusiones.py
+│   ├── problema.py         ├── resultados.py      └── documentacion.py
+│   ├── objetivos.py
 ├── assets/style.css        # Estilos (Dash los carga automáticamente)
 ├── jbook/                  # Fuente del Jupyter Book
 │   ├── _config.yml         ├── intro.md           ├── 01_EDA.ipynb
-│   ├── _toc.yml            ├── requirements.txt   └── 02_Baseline.ipynb
+│   ├── _toc.yml            ├── requirements.txt   └── logo.png
 └── scripts/
     └── publicar_libro.py   # Compila el libro y actualiza gh-pages
 ```
@@ -58,8 +54,7 @@ Proyecto_Viz/
 | Capa | Responsabilidad | Regla |
 |---|---|---|
 | `dataset/` | Guardar los datos | Única copia: la leen el dashboard y los notebooks |
-| `model/` | **Entrenar** y persistir | Solo escribe artefactos |
-| `utils/data_loader.py` | **Cargar** artefactos y calcular descriptivos | Nunca entrena |
+| `utils/data_loader.py` | **Cargar** el CSV y calcular descriptivos | Única puerta a los datos |
 | `utils/figures.py` | Construir figuras | Sin estado de interfaz |
 | `tabs/*.py` | Contenido de una pestaña | No importa otras pestañas |
 | `app.py` | Estructura y enrutado | No contiene contenido |
@@ -125,31 +120,15 @@ pip install -r requirements.txt
 
 ## 4. Ejecución
 
-### Opción A — un solo comando
-
 ```bash
 python app.py
 ```
 
-Si `model/model.pkl` no existe, `app.py` entrena el modelo antes de arrancar.
 El dashboard queda en <http://127.0.0.1:8080>, el mismo puerto que usa el
-contenedor.
+contenedor. No hace falta nada más: la app solo necesita el CSV.
 
-### Opción B — paso a paso
-
-```bash
-# 1. Entrenar el modelo -> model/model.pkl + model/metrics.json
-python model/train_model.py
-
-# 2. (opcional) repetir la búsqueda de hiperparámetros con GridSearchCV
-python model/train_model.py --buscar
-
-# 3. Levantar el dashboard
-python app.py
-```
-
-> Si falta el dataset, la app arranca igual y cada pestaña con datos muestra un
-> aviso explicando qué archivo falta y dónde colocarlo.
+> Si falta el dataset, arranca igual y cada pestaña con datos muestra un aviso
+> explicando qué archivo falta y dónde colocarlo.
 
 ---
 
@@ -176,32 +155,25 @@ error dice exactamente cuál.
 
 ---
 
-## 6. El modelo
+## 6. Alcance: qué cubre el dashboard
 
-Pipeline idéntico al del notebook `jbook/02_Baseline.ipynb`:
+El proyecto cubre el **análisis exploratorio** y el marco del trabajo: el
+planteamiento clínico, la operacionalización de las 23 predictoras, los
+contrastes de hipótesis y el diagnóstico de multicolinealidad. El modelado queda
+fuera del alcance de esta entrega.
 
-| Bloque | Variables | Transformación |
-|---|---|---|
-| Clínica numérica | `Age_at_diagnosis` | `StandardScaler` |
-| Clínicas categóricas | `Gender`, `Race` | `OneHotEncoder(drop="if_binary")` |
-| Mutacionales | 20 genes | `passthrough` (ya son 0/1) |
+El dashboard **no carga ni entrena ningún modelo**: `utils/data_loader.py` lee el
+CSV, reconstruye la partición y calcula descriptivos y contrastes, y eso es todo
+lo que consumen las pestañas.
+
+El conjunto de prueba sí se reserva desde el principio:
 
 - **Partición:** 80/20 estratificada, `random_state=42` → 671 entrenamiento / 168 prueba
-- **Modelo:** `LogisticRegression(C=0.3162, penalty="l1", solver="liblinear", class_weight=None)`
-- **Selección:** `GridSearchCV` sobre 52 combinaciones, 5-fold estratificado, métrica AUC-ROC
+- **Alcance del EDA:** se describe sobre el conjunto de entrenamiento, igual que en el libro
+- **Conjunto de prueba:** intacto, disponible para evaluar un clasificador más adelante
 
-Desempeño reportado en el libro sobre el conjunto de prueba:
-
-| Métrica | Valor |
-|---|---|
-| Accuracy | 0.87 |
-| Precisión (GBM) | 0.79 |
-| Recall (GBM) | 0.93 |
-| F1-score (GBM) | 0.86 |
-| AUC-ROC (validación cruzada) | 0.9165 |
-
-Las cifras que muestra el dashboard se leen de `model/metrics.json`, así que se
-actualizan solas al reentrenar.
+Esa separación es la que permite que un modelado posterior se evalúe sin haber
+mirado antes los datos de prueba.
 
 ---
 
@@ -212,11 +184,10 @@ actualizan solas al reentrenar.
 | **Introducción** | El problema clínico, ficha técnica del dataset y guía de navegación |
 | **Contexto clínico** | Qué distingue LGG de GBM, composición de la cohorte y edad al diagnóstico |
 | **Problema** | Coste de la secuenciación completa y reparto de las 23 predictoras entre las que aportan señal y las que no |
-| **Objetivos** | Objetivo general, seis específicos y criterios de cumplimiento contrastados con las métricas reales |
-| **Marco teórico** | Operacionalización de variables, formulación de la regresión logística, odds ratios, métricas y panel de genes |
-| **Metodología** | Seis etapas, preprocesamiento, hiperparámetros y coste computacional |
-| **Resultados** | *EDA* con selector de conjunto (entrenamiento / prueba / completo): distribución del grado, edad, variables clínicas, prevalencia de mutaciones, asociación con el grado y matriz de multicolinealidad. *Modelo*: matriz de confusión, curva ROC y coeficientes |
-| **Predicción** | Formulario (edad, género, grupo racial, 20 mutaciones), probabilidad estimada de GBM, desglose de contribuciones al log-odds y curva de sensibilidad a la edad |
+| **Objetivos** | Objetivo general, seis específicos y criterios de cumplimiento comprobados en vivo contra los datos |
+| **Marco teórico** | Operacionalización de variables, significancia frente a tamaño del efecto, V de Cramér, Spearman y panel de genes |
+| **Metodología** | Seis etapas, correspondencia entre tipo de dato y contraste, y las cinco pruebas aplicadas |
+| **Resultados** | Selector de conjunto (entrenamiento / prueba / completo): distribución del grado, edad, variables clínicas, prevalencia de mutaciones, asociación con el grado y matriz de multicolinealidad |
 | **Limitaciones** | Ocho fronteras del trabajo, con la tabla de representatividad de la cohorte |
 | **Conclusiones** | Hallazgos con su evidencia, siguientes pasos y entregables |
 | **Documentación** | Enlaces al Jupyter Book capítulo a capítulo y vista embebida |
@@ -245,8 +216,9 @@ Por defecto `_config.yml` usa `execute_notebooks: "off"`: publica las salidas ya
 guardadas en los `.ipynb`, lo que hace el build rápido y sin dependencias
 científicas. `--forzar-ejecucion` recalcula todo y necesita el dataset.
 
-El notebook `01_EDA.ipynb` guarda `jbook/datos_modelado.pkl` con las
-particiones, y `02_Baseline.ipynb` lo lee: al reejecutar, el orden importa.
+> `01_EDA.ipynb` todavía guarda un `datos_modelado.pkl` con las particiones, que
+> servía de puente hacia el notebook de modelado. Ya nadie lo lee: esa celda se
+> puede quitar cuando se retoque el notebook.
 
 ---
 
@@ -255,7 +227,7 @@ particiones, y `02_Baseline.ipynb` lo lee: al reejecutar, el orden importa.
 Es la ruta del Módulo 5 del curso: se empaqueta la app en un contenedor, la
 imagen se guarda en Artifact Registry y se despliega como servicio en Cloud Run.
 `app.py` expone `server = app.server`, que es el objeto WSGI que gunicorn
-necesita, y el `Dockerfile` entrena el modelo dentro de la imagen.
+necesita. La imagen no entrena nada: el dashboard solo lee el dataset.
 
 ### 9.1 Probar el contenedor en local
 
@@ -334,8 +306,8 @@ el libro con `python scripts/publicar_libro.py`.
 - Semilla fija (`RANDOM_STATE = 42`) en `utils/config.py`, compartida por el
   dashboard y los notebooks: la partición 80/20 es exactamente la misma en las
   dos piezas.
-- `scikit-learn` está fijado a `<1.8` a propósito: en 1.8 se deprecó el
-  argumento `penalty` de `LogisticRegression`, que es el que usa el pipeline
-  del notebook.
+- `scikit-learn` se usa solo para `train_test_split`. La cota `<1.8` de
+  `requirements.txt` venía del pipeline de modelado y hoy ya no hace falta, pero
+  se mantiene para no cambiar el entorno a mitad del proyecto.
 - El EDA del dashboard describe por defecto el conjunto de **entrenamiento**,
   igual que el libro, para no filtrar información del conjunto de prueba.

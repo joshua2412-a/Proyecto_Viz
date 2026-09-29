@@ -5,10 +5,6 @@
 # como "modificado por completo" la siguiente vez que se regenera en otro
 # sistema, aunque su contenido sea el mismo.
 
-# Artefactos generados por model/train_model.py
-model/metrics.json  text eol=lf
-model/model.pkl     binary
-
 # Fuente del proyecto
 *.py    text eol=lf
 *.ipynb text eol=lf

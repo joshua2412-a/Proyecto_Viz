@@ -1,25 +1,22 @@
 """
-Carga de artefactos (dataset, modelo y métricas) y estadística descriptiva.
+Carga del dataset y estadística descriptiva.
 
-Este módulo es la ÚNICA puerta de entrada a los datos y al modelo entrenado.
-Separa con claridad "entrenar" (model/train_model.py) de "cargar y usar"
-(este archivo), tal y como exige la arquitectura del proyecto.
+Este módulo es la ÚNICA puerta de entrada a los datos. El alcance del proyecto
+es el análisis exploratorio: aquí no se entrena ni se carga ningún modelo.
 
 La partición train/test se reconstruye aquí con los mismos parámetros del
 notebook (80/20, estratificada, `random_state=42`), de modo que las cifras del
 dashboard coinciden exactamente con las del Jupyter Book: el EDA se describe
-sobre el conjunto de entrenamiento y el desempeño se mide sobre el de prueba.
+sobre el conjunto de entrenamiento y el de prueba queda reservado.
 
-Las funciones usan `lru_cache` para que el CSV y el .pkl se lean una sola vez
-por proceso, aunque diez pestañas los pidan.
+Las funciones usan `lru_cache` para que el CSV se lea una sola vez por proceso,
+aunque diez pestañas lo pidan.
 """
 
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 
-import joblib
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -32,8 +29,6 @@ from utils.config import (
     GENDER_LABELS,
     GENE_FEATURES,
     GRADE_LABELS,
-    METRICS_PATH,
-    MODEL_PATH,
     NUMERIC_FEATURES,
     RACE_LABELS,
     RANDOM_STATE,
@@ -290,81 +285,9 @@ def matriz_asociacion_genes(ambito: str = "train", top_n: int = 12) -> pd.DataFr
 
 
 # --------------------------------------------------------------------------- #
-# Modelo y métricas
+# Cachés
 # --------------------------------------------------------------------------- #
-@lru_cache(maxsize=1)
-def load_model():
-    """Carga el pipeline entrenado (preprocesamiento + regresión logística)."""
-    if not MODEL_PATH.exists():
-        raise FileNotFoundError(
-            f"No se encontró {MODEL_PATH}. Ejecuta primero: python model/train_model.py"
-        )
-    return joblib.load(MODEL_PATH)
-
-
-@lru_cache(maxsize=1)
-def load_metrics() -> dict:
-    """Carga las métricas calculadas durante el entrenamiento."""
-    if not METRICS_PATH.exists():
-        raise FileNotFoundError(
-            f"No se encontró {METRICS_PATH}. Ejecuta primero: python model/train_model.py"
-        )
-    with open(METRICS_PATH, "r", encoding="utf-8") as archivo:
-        return json.load(archivo)
-
-
-def predecir_gbm(registro: dict) -> float:
-    """Probabilidad estimada de GBM (0-1) para un paciente descrito en un dict.
-
-    El pipeline se encarga del escalado y de la codificación one-hot, así que
-    basta con pasar los valores en crudo con los nombres de columna originales.
-    """
-    modelo = load_model()
-    entrada = pd.DataFrame([registro])[FEATURES]
-    return float(modelo.predict_proba(entrada)[0][1])
-
-
-def contribuciones_prediccion(registro: dict, top_n: int = 10) -> pd.DataFrame:
-    """Descompone la predicción en la contribución de cada variable al log-odds.
-
-    En un modelo lineal la predicción ES la suma de estas contribuciones más el
-    intercepto, así que el desglose no es una aproximación: es exactamente lo
-    que hizo el modelo. Solo se devuelven las `top_n` de mayor magnitud.
-    """
-    modelo = load_model()
-    preprocesador = modelo.named_steps["preprocesamiento"]
-    clasificador = modelo.named_steps["clasificador"]
-
-    entrada = pd.DataFrame([registro])[FEATURES]
-    transformada = preprocesador.transform(entrada)
-    if hasattr(transformada, "toarray"):  # por si el one-hot devuelve sparse
-        transformada = transformada.toarray()
-
-    nombres = [
-        nombre.split("__", 1)[-1] for nombre in preprocesador.get_feature_names_out()
-    ]
-    coeficientes = clasificador.coef_.ravel()
-    contribuciones = transformada.ravel() * coeficientes
-
-    datos = pd.DataFrame(
-        {
-            "variable": nombres,
-            "contribucion": contribuciones,
-            "coeficiente": coeficientes,
-        }
-    )
-    datos["empuja_hacia"] = np.where(datos["contribucion"] >= 0, "GBM", "LGG")
-    datos = datos[datos["contribucion"].abs() > 1e-9]
-    return (
-        datos.sort_values("contribucion", key=np.abs, ascending=False)
-        .head(top_n)
-        .reset_index(drop=True)
-    )
-
-
 def clear_caches() -> None:
-    """Invalida las cachés (útil tras reemplazar el dataset o reentrenar)."""
+    """Invalida las cachés (útil tras reemplazar el dataset)."""
     load_data.cache_clear()
     _indices_particion.cache_clear()
-    load_model.cache_clear()
-    load_metrics.cache_clear()

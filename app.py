@@ -1,8 +1,8 @@
 """
-Dashboard de clasificación del grado tumoral en gliomas · aplicación principal.
+Dashboard analítico del grado tumoral en gliomas · aplicación principal.
 
 Responsabilidades de este archivo, y solo estas:
-  1. Verificar que exista el modelo entrenado y entrenarlo si falta.
+  1. Avisar al arrancar si falta el dataset.
   2. Instanciar la app de Dash con Bootstrap.
   3. Componer la barra superior y el sistema de pestañas.
   4. Enrutar la pestaña activa hacia el `layout()` del módulo correspondiente.
@@ -12,25 +12,16 @@ El análisis completo, con su desarrollo estadístico, vive en el Jupyter Book d
 jbook/ (publicado en GitHub Pages y enlazado desde la pestaña Documentación).
 
 Ejecución:
-    python app.py     ->    http://127.0.0.1:8050
+    python app.py     ->    http://127.0.0.1:8080
 """
 
 from __future__ import annotations
 
-import subprocess
-import sys
-
 import dash_bootstrap_components as dbc
 from dash import Dash, Input, Output, callback, dcc, html
 
-from utils.config import (
-    BASE_DIR,
-    DATA_PATH,
-    METRICS_PATH,
-    MODEL_PATH,
-    URL_LIBRO,
-)
-from utils.theme import BG_CARD, COLOR_GBM, COLOR_LGG
+from utils.config import DATA_PATH, URL_LIBRO
+from utils.theme import BG_PAGE, INK_MUTED, STATUS_CRITICAL
 
 # Módulos de pestañas: cada uno expone una función layout()
 from tabs import (
@@ -42,7 +33,6 @@ from tabs import (
     marco_teorico,
     metodologia,
     objetivos,
-    prediccion,
     problema,
     resultados,
 )
@@ -52,17 +42,16 @@ from tabs import (
 #    Añadir una pestaña nueva = crear tabs/mi_pestana.py y sumar una fila aquí.
 # --------------------------------------------------------------------------- #
 PESTANAS = [
-    ("tab-introduccion", "📘 Introducción", introduccion),
-    ("tab-contexto", "🧬 Contexto clínico", contexto),
-    ("tab-problema", "❗ Problema", problema),
-    ("tab-objetivos", "🎯 Objetivos", objetivos),
-    ("tab-marco", "📚 Marco teórico", marco_teorico),
-    ("tab-metodologia", "🧪 Metodología", metodologia),
-    ("tab-resultados", "📊 Resultados", resultados),
-    ("tab-prediccion", "🔮 Predicción", prediccion),
-    ("tab-limitaciones", "⚠️ Limitaciones", limitaciones),
-    ("tab-conclusiones", "✅ Conclusiones", conclusiones),
-    ("tab-documentacion", "📖 Documentación", documentacion),
+    ("tab-introduccion", "Introducción", introduccion),
+    ("tab-contexto", "Contexto clínico", contexto),
+    ("tab-problema", "Problema", problema),
+    ("tab-objetivos", "Objetivos", objetivos),
+    ("tab-marco", "Marco teórico", marco_teorico),
+    ("tab-metodologia", "Metodología", metodologia),
+    ("tab-resultados", "Resultados", resultados),
+    ("tab-limitaciones", "Limitaciones", limitaciones),
+    ("tab-conclusiones", "Conclusiones", conclusiones),
+    ("tab-documentacion", "Documentación", documentacion),
 ]
 
 LAYOUTS = {tab_id: modulo.layout for tab_id, _, modulo in PESTANAS}
@@ -70,32 +59,19 @@ TAB_INICIAL = PESTANAS[0][0]
 
 
 # --------------------------------------------------------------------------- #
-# 2. Preparación de artefactos
+# 2. Comprobación del dataset
 # --------------------------------------------------------------------------- #
-def preparar_artefactos() -> None:
-    """Entrena el modelo si aún no existe, para que el proyecto arranque solo.
-
-    A diferencia del dataset —que es real y hay que colocar a mano en
-    dataset/— el modelo es reproducible: si falta, se entrena con los mismos
-    hiperparámetros del notebook. `train_model.py` sigue siendo ejecutable por
-    separado.
-    """
+def comprobar_dataset() -> None:
+    """Avisa al arrancar si falta el CSV, en vez de fallar pestaña a pestaña."""
     if not DATA_PATH.exists():
         print(
             f"[setup] Falta el dataset: {DATA_PATH}\n"
             "[setup] Coloca TCGA_InfoWithGrade.csv en dataset/ (ver dataset/README.md).\n"
             "[setup] La app arrancará, pero las pestañas con datos mostrarán un aviso."
         )
-        return
-
-    if not MODEL_PATH.exists() or not METRICS_PATH.exists():
-        print("[setup] No se encontró el modelo entrenado. Entrenando...")
-        subprocess.run(
-            [sys.executable, str(BASE_DIR / "model" / "train_model.py")], check=True
-        )
 
 
-preparar_artefactos()
+comprobar_dataset()
 
 
 # --------------------------------------------------------------------------- #
@@ -111,7 +87,7 @@ app = Dash(
     update_title="Calculando...",
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
 )
-server = app.server  # expuesto para despliegue con gunicorn (App Engine)
+server = app.server  # objeto WSGI que gunicorn sirve en el contenedor
 
 
 # --------------------------------------------------------------------------- #
@@ -134,9 +110,9 @@ def barra_superior() -> html.Div:
                                 className="brand-title",
                             ),
                             html.Div(
-                                "Caracterización clínico-molecular y clasificación "
-                                "de LGG frente a GBM a partir de la edad, el perfil "
-                                "demográfico y 20 mutaciones genéticas",
+                                "Análisis exploratorio de la edad, el perfil "
+                                "demográfico y 20 mutaciones genéticas en 839 "
+                                "pacientes de TCGA-LGG y TCGA-GBM",
                                 className="brand-subtitle",
                             ),
                         ],
@@ -146,7 +122,7 @@ def barra_superior() -> html.Div:
                         html.Div(
                             [
                                 html.A(
-                                    "📖 Jupyter Book",
+                                    "Jupyter Book",
                                     href=URL_LIBRO,
                                     target="_blank",
                                     rel="noopener noreferrer",
@@ -154,7 +130,7 @@ def barra_superior() -> html.Div:
                                 ),
                                 html.Span("Dash", className="tech-pill"),
                                 html.Span("Plotly", className="tech-pill"),
-                                html.Span("scikit-learn", className="tech-pill"),
+                                html.Span("pandas", className="tech-pill"),
                             ],
                             className="tech-pills",
                         ),
@@ -179,8 +155,10 @@ def navegacion() -> html.Div:
                     dbc.Tab(
                         label=etiqueta,
                         tab_id=tab_id,
-                        tab_class_name="main-tab",
-                        active_tab_class_name="main-tab-active",
+                        # label_* aplica la clase al <a>; tab_* la aplicaria al
+                        # <li> de fuera, y entonces el subrayado se dibuja dos veces.
+                        label_class_name="main-tab",
+                        active_label_class_name="main-tab-active",
                     )
                     for tab_id, etiqueta, _ in PESTANAS
                 ],
@@ -203,7 +181,7 @@ def pie_pagina() -> html.Div:
                 html.Span(" · ", className="footer-sep"),
                 html.Span("Dataset: Glioma Grading Clinical and Mutation Features (TCGA, 839 pacientes)"),
                 html.Span(" · ", className="footer-sep"),
-                html.Span("Modelo: regresión logística L1 (scikit-learn)"),
+                html.Span("Análisis exploratorio · Dash y Plotly"),
                 html.Span(" · ", className="footer-sep"),
                 html.A(
                     "Documentación completa",
@@ -230,7 +208,7 @@ app.layout = html.Div(
             dcc.Loading(
                 html.Div(id="contenido-pestana"),
                 type="dot",
-                color=COLOR_LGG,
+                color=INK_MUTED,
                 parent_className="loading-wrapper",
             ),
             fluid=True,
@@ -239,7 +217,7 @@ app.layout = html.Div(
         pie_pagina(),
     ],
     className="app-root",
-    style={"background": BG_CARD},
+    style={"background": BG_PAGE},
 )
 
 
@@ -263,14 +241,14 @@ def mostrar_pestana(tab_activa: str):
                 html.Div(str(error)),
                 html.Hr(),
                 html.Div(
-                    "Revisa que exista dataset/TCGA_InfoWithGrade.csv y que el "
-                    "modelo esté entrenado (python model/train_model.py).",
+                    "Revisa que exista dataset/TCGA_InfoWithGrade.csv "
+                    "(ver dataset/README.md).",
                     className="small",
                 ),
             ],
             color="danger",
             className="mt-4",
-            style={"borderLeft": f"5px solid {COLOR_GBM}"},
+            style={"borderLeft": f"3px solid {STATUS_CRITICAL}"},
         )
 
 

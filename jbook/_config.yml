@@ -1,16 +1,15 @@
 # Configuración del Jupyter Book
 # ---------------------------------------------------------------------------
-# Reconstruida a partir del sitio que estaba publicado en gh-pages de
-# Alej0126/Jbook_dataviz (un build de Jupyter Book no versiona su propia
-# configuración). El libro se publica ahora en gh-pages de este repositorio.
+# El libro se publica en gh-pages de este repositorio.
 #
 # Compilar:      jupyter-book build jbook/
 # Publicar:      python scripts/publicar_libro.py     (o ghp-import, ver README)
 # ---------------------------------------------------------------------------
 
 title: Caracterización Clínico-Molecular del Grado Tumoral en Gliomas
-author: Alejandro Cantillo Escorcia · Joshua Hincapie LLorente
-copyright: "2025"
+author: Joshua Hincapie LLorente y Alejandro Cantillo Escorcia
+copyright: "2026"
+logo: logo.png
 only_build_toc_files: true
 
 # ---------------------------------------------------------------------------
@@ -25,7 +24,7 @@ execute:
   allow_errors: false
 
 # ---------------------------------------------------------------------------
-# Extensiones de MyST (las mismas que usa el sitio publicado)
+# Extensiones de MyST
 # ---------------------------------------------------------------------------
 parse:
   myst_enable_extensions:
@@ -56,12 +55,14 @@ html:
   # utils/config.py).
   extra_footer: |
     <p>Dashboard interactivo del proyecto:
-    <a href="https://gliomas-dashboard-984926604434.us-central1.run.app">panel de visualización y predicción</a>.</p>
+    <a href="https://gliomas-dashboard-984926604434.us-central1.run.app">panel de visualización de datos</a>.</p>
 
-launch_buttons:
-  thebe: true
-  colab_url: https://colab.research.google.com
-  notebook_interface: jupyterlab
+# ---------------------------------------------------------------------------
+# Salida LaTeX (solo si algún día compilas el libro a PDF)
+# ---------------------------------------------------------------------------
+latex:
+  latex_documents:
+    targetname: book.tex
 
 # ---------------------------------------------------------------------------
 # Extensiones de Sphinx adicionales

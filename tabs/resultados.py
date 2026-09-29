@@ -1,7 +1,7 @@
 """
 Pestaña 7 · Resultados
-Dos bloques: el análisis exploratorio (con selector de conjunto de datos) y el
-desempeño del clasificador sobre el conjunto de prueba reservado.
+El análisis exploratorio completo, con un selector que permite recorrer el
+mismo conjunto de figuras sobre entrenamiento, prueba o el dataset entero.
 """
 
 from __future__ import annotations
@@ -25,7 +25,9 @@ from utils.components import (
 from utils.data_loader import (
     AMBITO_NOMBRES,
     asociacion_con_grado,
-    load_metrics,
+    estadisticas_edad,
+    prevalencia_genes,
+    proporcion_grado,
     prueba_edad_por_grado,
     tamanos_particion,
 )
@@ -33,47 +35,47 @@ from utils.figures import (
     fig_asociacion_grado,
     fig_boxplot_edad,
     fig_clinica_por_grado,
-    fig_coeficientes,
     fig_distribucion_grado,
     fig_edad_por_grado,
-    fig_matriz_confusion,
     fig_matriz_genes,
     fig_prevalencia_genes,
-    fig_roc,
 )
-from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
+from utils.theme import COLOR_LGG, SERIES
 
 ID_AMBITO = "res-ambito"
 ID_EDA = "res-eda"
 
 
 def _kpis() -> list[dict]:
-    """Métricas de desempeño del modelo sobre el conjunto de prueba."""
-    metricas = load_metrics()
+    """Los cuatro hallazgos que resumen el análisis, sobre entrenamiento."""
+    asociacion = asociacion_con_grado("train")
+    edad = estadisticas_edad("train").set_index("grade_label")
+    idh1 = prevalencia_genes("train").set_index("gen").loc["IDH1"]
+    proporciones = proporcion_grado("train").set_index("grado")
+
+    mas_fuerte = asociacion.iloc[0]
+
     return [
         {
-            "valor": f"{metricas['roc_auc']:.3f}",
-            "etiqueta": "AUC-ROC",
-            "detalle": f"CV {metricas['cv_auc_media']:.3f} ± {metricas['cv_auc_desviacion']:.3f}",
-            "color": SERIES[0],
+            "valor": f"{mas_fuerte['rho']:+.2f}",
+            "etiqueta": f"Asociación de {mas_fuerte['variable']}",
+            "detalle": "El marcador con mayor capacidad discriminativa",
         },
         {
-            "valor": f"{metricas['accuracy']:.1%}",
-            "etiqueta": "Accuracy",
-            "detalle": f"{metricas['n_test']} pacientes de prueba",
-            "color": SERIES[2],
+            "valor": f"{edad.loc['GBM', 'media'] - edad.loc['LGG', 'media']:.1f} años",
+            "etiqueta": "Diferencia de edad",
+            "detalle": f"GBM {edad.loc['GBM', 'media']:.1f} frente a LGG "
+                       f"{edad.loc['LGG', 'media']:.1f}",
         },
         {
-            "valor": f"{metricas['recall']:.1%}",
-            "etiqueta": "Recall de GBM",
-            "detalle": "Casos agresivos detectados",
-            "color": SERIES[1],
+            "valor": f"{idh1['LGG']:.0f}% vs {idh1['GBM']:.0f}%",
+            "etiqueta": "IDH1 mutado: LGG vs GBM",
+            "detalle": "Prevalencia de la mutación en cada grado",
         },
         {
-            "valor": f"{metricas['precision']:.1%}",
-            "etiqueta": "Precisión de GBM",
-            "detalle": f"F1-score {metricas['f1']:.3f}",
-            "color": SERIES[3],
+            "valor": f"{int(asociacion['significativa'].sum())} de {len(asociacion)}",
+            "etiqueta": "Variables con señal",
+            "detalle": f"Sobre {int(proporciones['pacientes'].sum())} pacientes de entrenamiento",
         },
     ]
 
@@ -227,7 +229,6 @@ def _bloque_eda(ambito: str) -> html.Div:
                 titulo="Las diez variables más asociadas al grado",
                 subtitulo=f"{AMBITO_NOMBRES[ambito].capitalize()} · Spearman, V de Cramér y "
                           "chi-cuadrado",
-                color=SERIES[3],
                 className="mb-4",
             ),
             section_title("Multicolinealidad entre mutaciones"),
@@ -262,7 +263,6 @@ def _bloque_eda(ambito: str) -> html.Div:
                                         "IDH1 mutado caracteriza LGG, PTEN alterado "
                                         "caracteriza GBM.",
                                     ],
-                                    color=COLOR_LGG,
                                 ),
                                 callout(
                                     "Ningún par supera el umbral crítico de redundancia "
@@ -271,103 +271,9 @@ def _bloque_eda(ambito: str) -> html.Div:
                                     "retenerse completo sin inestabilidad en la estimación "
                                     "de los coeficientes.",
                                     titulo="Conclusión del diagnóstico",
-                                    color=SERIES[2],
                                 ),
                             ],
                             titulo="Cómo se lee la matriz",
-                            color=SERIES[2],
-                        ),
-                        lg=5,
-                        className="mb-4",
-                    ),
-                ]
-            ),
-        ]
-    )
-
-
-def _bloque_modelo() -> html.Div:
-    """Desempeño del clasificador sobre el conjunto de prueba."""
-    metricas = load_metrics()
-    cm = metricas["matriz_confusion"]
-    verdaderos_lgg, falsos_gbm = cm[0]
-    falsos_lgg, verdaderos_gbm = cm[1]
-
-    return html.Div(
-        [
-            dbc.Row(
-                [
-                    dbc.Col(
-                        graph_card(
-                            fig_matriz_confusion(),
-                            "Matriz de confusión",
-                            f"{falsos_lgg} falsos negativos (GBM no detectados) y "
-                            f"{falsos_gbm} falsos positivos (LGG marcados como GBM).",
-                        ),
-                        lg=5,
-                        className="mb-4",
-                    ),
-                    dbc.Col(
-                        graph_card(
-                            fig_roc(),
-                            "Curva ROC",
-                            "La curva se aproxima a la esquina superior izquierda: el "
-                            "modelo discrimina bien en todo el rango de umbrales, no solo "
-                            "en 0,50.",
-                        ),
-                        lg=7,
-                        className="mb-4",
-                    ),
-                ]
-            ),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        graph_card(
-                            fig_coeficientes(top_n=12),
-                            "Coeficientes del modelo y odds ratios",
-                            f"Solo {metricas['n_variables_activas']} de "
-                            f"{metricas['n_columnas_modelo']} columnas sobreviven a la "
-                            "penalización L1; el resto tiene coeficiente exactamente cero.",
-                        ),
-                        lg=7,
-                        className="mb-4",
-                    ),
-                    dbc.Col(
-                        card(
-                            [
-                                paragraph(
-                                    f"Con {verdaderos_gbm} de {verdaderos_gbm + falsos_lgg} "
-                                    "glioblastomas detectados, el modelo prioriza no dejar "
-                                    "pasar los casos agresivos, a costa de marcar de más "
-                                    f"({falsos_gbm} pacientes con LGG clasificados como "
-                                    "GBM). En un contexto clínico es el intercambio "
-                                    "razonable: es preferible enviar un caso adicional a "
-                                    "revisión que omitir un tumor agresivo."
-                                ),
-                                bullet_list(
-                                    [
-                                        "IDH1 mutado es el factor protector más fuerte: "
-                                        "reduce drásticamente las probabilidades de GBM.",
-                                        "IDH2 refuerza la misma señal biológica, al ser "
-                                        "una isoforma de la misma enzima.",
-                                        "TP53 y PTEN empujan hacia GBM, igual que la edad.",
-                                        "La mayoría de los genes queda en cero: el modelo "
-                                        "reduce por sí solo el panel necesario.",
-                                    ],
-                                    color=COLOR_GBM,
-                                ),
-                                callout(
-                                    f"La diferencia entre el AUC de validación cruzada "
-                                    f"({metricas['cv_auc_media']:.3f}) y el de prueba "
-                                    f"({metricas['roc_auc']:.3f}) es pequeña: no hay "
-                                    "indicios de sobreajuste.",
-                                    titulo="Estabilidad",
-                                    color=SERIES[2],
-                                ),
-                            ],
-                            titulo="Lectura de los resultados",
-                            color=COLOR_GBM,
                         ),
                         lg=5,
                         className="mb-4",
@@ -384,8 +290,9 @@ def layout() -> html.Div:
         [
             page_header(
                 "Resultados",
-                "Primero qué dicen los datos, después qué aprende el modelo de ellos.",
-                "📊",
+                "Qué dicen los datos: distribuciones, contrastes y fuerza de cada "
+                "asociación con el grado tumoral.",
+                "bi-bar-chart-line",
             ),
             kpi_row(_kpis()),
             section_title("Análisis exploratorio"),
@@ -395,24 +302,21 @@ def layout() -> html.Div:
                 "sería filtrar información. El selector permite comprobar que la "
                 "estratificación mantuvo la misma estructura en todas las particiones.",
                 titulo="Por qué el selector empieza en entrenamiento",
-                color=COLOR_LGG,
             ),
             _selector_ambito(),
             html.Div(series_chips(), className="mb-3"),
             dcc.Loading(
                 html.Div(_bloque_eda("train"), id=ID_EDA),
                 type="dot",
-                color=COLOR_LGG,
             ),
-            section_title("Desempeño del clasificador"),
-            paragraph(
-                "Todas las cifras de esta sección provienen del conjunto de prueba "
-                "reservado, que el modelo no vio durante el entrenamiento ni durante la "
-                "búsqueda de hiperparámetros."
+            callout(
+                "El modelado —la traducción de estos hallazgos en un clasificador— es el "
+                "paso natural a partir de aquí, con el conjunto de prueba ya reservado "
+                "para evaluarlo. Queda fuera del alcance de esta entrega.",
+                titulo="Qué viene después",
             ),
-            _bloque_modelo(),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )
 
 

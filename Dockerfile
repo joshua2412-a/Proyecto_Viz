@@ -7,8 +7,8 @@
 # `app:server` es el objeto Flask que expone app.py (server = app.server): es lo
 # que gunicorn necesita, porque Dash por sí solo no es una aplicación WSGI.
 
-# Python 3.12 para igualar el entorno conda local: así el model.pkl que se
-# genera dentro de la imagen y el que se genera en local son intercambiables.
+# Python 3.12 para igualar el entorno conda local y evitar diferencias de
+# versión en pandas, scipy y scikit-learn entre el contenedor y el desarrollo.
 FROM python:3.12-slim
 
 # Evita que Python escriba .pyc y fuerza logs sin búfer (se ven en Cloud Run)
@@ -28,16 +28,14 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copiar el resto del proyecto (.dockerignore excluye jbook/, venv, cachés...)
 COPY . .
 
-# Entrenar el modelo dentro de la imagen, con el mismo Python y el mismo
-# scikit-learn que la van a usar: evita cualquier problema de compatibilidad al
-# deserializar un .pkl entrenado en otra versión. Es determinista (semilla 42),
-# así que produce exactamente el mismo modelo que en local.
-RUN python model/train_model.py
+# Nota: el dashboard cubre el análisis exploratorio y no carga ni entrena ningún
+# modelo, así que la imagen solo necesita el dataset y el código de las pestañas.
 
 # Puerto de la aplicación (Cloud Run envía tráfico al 8080 por defecto)
 EXPOSE 8080
 
-# Un solo worker con varios hilos: cada worker carga pandas, scikit-learn y su
-# propia copia del modelo, así que dos workers duplicarían la memoria.
+# Un solo worker con varios hilos: cada worker carga su propia copia de pandas,
+# scipy y el dataset, así que dos workers duplicarían la memoria sin aportar
+# nada (el trabajo del dashboard es de espera, no de CPU).
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "--workers", "1", "--threads", "8", \
      "--timeout", "120", "--preload", "app:server"]

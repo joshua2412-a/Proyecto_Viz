@@ -1,7 +1,8 @@
 """
 Pestaña 6 · Metodología
-Cómo se pasó del CSV al modelo entrenado: partición, preprocesamiento,
-búsqueda de hiperparámetros y evaluación. Todo reproducible con una semilla.
+Cómo se pasó del CSV a las conclusiones del análisis exploratorio: partición,
+control de calidad y las pruebas estadísticas aplicadas a cada tipo de
+variable. Todo reproducible con una semilla.
 """
 
 from __future__ import annotations
@@ -22,14 +23,17 @@ from utils.components import (
 )
 from utils.config import (
     CATEGORICAL_FEATURES,
-    CV_FOLDS,
     GENE_FEATURES,
     NUMERIC_FEATURES,
     RANDOM_STATE,
     TEST_SIZE,
     URL_LIBRO_EDA,
 )
-from utils.data_loader import load_metrics, proporcion_grado, tamanos_particion
+from utils.data_loader import (
+    asociacion_con_grado,
+    proporcion_grado,
+    tamanos_particion,
+)
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 ETAPAS = [
@@ -44,46 +48,83 @@ ETAPAS = [
     (
         "2",
         "Partición estratificada 80/20",
-        "Se reserva el 20 % de los pacientes para la validación final antes de mirar "
-        "cualquier estadístico, de modo que el EDA no filtre información del conjunto "
-        "de prueba. La estratificación mantiene la proporción LGG/GBM en ambos lados.",
+        "Se reserva el 20 % de los pacientes antes de mirar cualquier estadístico, "
+        "de modo que el EDA no filtre información del conjunto de prueba. La "
+        "estratificación mantiene la proporción LGG/GBM en ambos lados.",
     ),
     (
         "3",
-        "Análisis exploratorio sobre entrenamiento",
-        "Univariado (distribuciones, normalidad, valores atípicos), bivariado contra "
-        "el grado (Mann-Whitney para la edad, chi-cuadrado y V de Cramér para las "
-        "categóricas) y diagnóstico de multicolinealidad entre mutaciones.",
+        "Análisis univariado",
+        "Distribución de cada variable por separado: medidas de tendencia central y "
+        "dispersión para la edad, frecuencias para las categóricas y las 20 "
+        "mutaciones. Se evalúan normalidad (Shapiro-Wilk) y valores atípicos "
+        "(regla del rango intercuartílico).",
     ),
     (
         "4",
-        "Preprocesamiento en pipeline",
-        "Un ColumnTransformer aplica a cada tipo de variable su transformación y va "
-        "dentro del mismo objeto que el modelo: el .pkl acepta datos en crudo y no "
-        "hay riesgo de aplicar un escalado distinto en inferencia.",
+        "Análisis bivariado contra el grado",
+        "Cada predictora se cruza con la variable objetivo usando la prueba que "
+        "corresponde a su naturaleza, y se cuantifica la fuerza de la asociación "
+        "además de su significancia: un p-valor pequeño con una muestra grande no "
+        "implica un efecto relevante.",
     ),
     (
         "5",
-        f"Búsqueda de hiperparámetros con validación cruzada de {CV_FOLDS} particiones",
-        "GridSearchCV sobre 52 combinaciones (13 valores de C × 2 penalizaciones × 2 "
-        "configuraciones de class_weight), optimizando AUC-ROC por ser robusta ante "
-        "el desbalance de clases.",
+        "Diagnóstico de multicolinealidad",
+        "Se mide la co-ocurrencia entre mutaciones con la V de Cramér para detectar "
+        "pares redundantes que inestabilizarían la estimación de parámetros en un "
+        "modelo posterior.",
     ),
     (
         "6",
-        "Evaluación sobre el conjunto reservado",
-        "Métricas de clasificación binaria más los tiempos de búsqueda, entrenamiento "
-        "e inferencia, para poder comparar el baseline con modelos más complejos en "
-        "las dos dimensiones: error y coste computacional.",
+        "Publicación del análisis",
+        "El desarrollo completo se publica como Jupyter Book, y este tablero "
+        "reproduce sus figuras de forma interactiva para explorarlas sin código.",
+    ),
+]
+
+PRUEBAS = [
+    (
+        "Mann-Whitney (U)",
+        "Edad al diagnóstico frente al grado",
+        "No paramétrica: se elige porque Shapiro-Wilk rechaza la normalidad de la "
+        "edad, que presenta un patrón bimodal. Compara distribuciones completas, no "
+        "solo medias.",
+    ),
+    (
+        "Shapiro-Wilk",
+        "Normalidad de la edad",
+        "Determina qué familia de pruebas es válida después. Con n = 671 es muy "
+        "sensible, así que su resultado se lee junto a la asimetría y la forma de la "
+        "distribución, no de forma aislada.",
+    ),
+    (
+        "Chi-cuadrado de independencia",
+        "Género, grupo racial y cada mutación frente al grado",
+        "Contrasta si la distribución de una categórica cambia entre LGG y GBM. Las "
+        "categorías con frecuencias muy bajas se agrupan antes para que las "
+        "frecuencias esperadas no invaliden la prueba.",
+    ),
+    (
+        "V de Cramér",
+        "Fuerza de las asociaciones categóricas",
+        "Complementa al chi-cuadrado: este dice si hay asociación, la V dice cuánta. "
+        "Se usa tanto contra el grado como entre pares de genes.",
+    ),
+    (
+        "Correlación de Spearman",
+        "Dirección y magnitud frente al grado",
+        "Da el signo, que es lo que permite decir si una variable empuja hacia LGG o "
+        "hacia GBM. Al ser de rangos, no exige linealidad ni normalidad.",
     ),
 ]
 
 
 def _kpis() -> list[dict]:
-    """Cifras de la partición y de la validación cruzada."""
+    """Cifras de la partición y del alcance del análisis."""
     tamanos = tamanos_particion()
-    metricas = load_metrics()
     proporciones = proporcion_grado("train").set_index("grado")
+    asociacion = asociacion_con_grado("train")
 
     return [
         {
@@ -91,97 +132,66 @@ def _kpis() -> list[dict]:
             "etiqueta": "Pacientes en entrenamiento",
             "detalle": f"LGG {proporciones.loc['LGG', 'porcentaje']:.1f}% · "
                        f"GBM {proporciones.loc['GBM', 'porcentaje']:.1f}%",
-            "color": COLOR_LGG,
         },
         {
             "valor": f"{tamanos['test']}",
             "etiqueta": "Pacientes en prueba",
             "detalle": f"Reservados antes del EDA ({TEST_SIZE:.0%} del total)",
-            "color": COLOR_GBM,
         },
         {
-            "valor": f"{metricas['cv_auc_media']:.3f}",
-            "etiqueta": f"AUC-ROC en CV ({CV_FOLDS}-fold)",
-            "detalle": f"Desviación ± {metricas['cv_auc_desviacion']:.3f}",
-            "color": SERIES[2],
+            "valor": f"{len(asociacion)}",
+            "etiqueta": "Variables contrastadas",
+            "detalle": f"{len(NUMERIC_FEATURES)} numérica · "
+                       f"{len(CATEGORICAL_FEATURES)} categóricas · "
+                       f"{len(GENE_FEATURES)} mutaciones",
         },
         {
             "valor": f"seed {RANDOM_STATE}",
             "etiqueta": "Reproducibilidad",
             "detalle": "Misma semilla en libro y dashboard",
-            "color": SERIES[3],
         },
     ]
 
 
-def _tabla_preprocesamiento() -> dbc.Table:
-    """Qué transformación recibe cada bloque de variables y por qué."""
+def _tabla_variables() -> dbc.Table:
+    """Qué prueba recibe cada bloque de variables y por qué."""
     return data_table(
-        ["Bloque", "Variables", "Transformación", "Motivo"],
+        ["Bloque", "Variables", "Prueba contra el grado", "Motivo"],
         [
             [
                 "Clínica numérica",
                 ", ".join(NUMERIC_FEATURES),
-                "StandardScaler",
-                "La regresión logística regularizada es sensible a la escala: sin "
-                "estandarizar, la penalización castigaría a la edad por estar medida "
-                "en años.",
+                "Mann-Whitney (U)",
+                "La variable es continua y no normal; se comparan las distribuciones "
+                "de los dos grupos.",
             ],
             [
                 "Clínicas categóricas",
                 ", ".join(CATEGORICAL_FEATURES),
-                "OneHotEncoder(drop='if_binary', handle_unknown='ignore')",
-                "Race tiene cuatro niveles sin orden natural; Gender es binaria y "
-                "basta una columna.",
+                "Chi-cuadrado + V de Cramér",
+                "Race tiene cuatro niveles sin orden natural; Gender es binaria. "
+                "Interesa si la composición cambia entre grados.",
             ],
             [
                 "Mutacionales",
                 f"{len(GENE_FEATURES)} genes",
-                "passthrough",
-                "Ya vienen codificadas como indicadores 0/1: transformarlas no "
-                "añadiría nada.",
+                "Chi-cuadrado + V de Cramér + Spearman",
+                "Indicadores 0/1: se contrasta la independencia y se añade Spearman "
+                "para conocer la dirección del efecto.",
             ],
-        ],
-    )
-
-
-def _tabla_hiperparametros() -> dbc.Table:
-    """Configuración seleccionada por la búsqueda y su lectura."""
-    hiperparametros = load_metrics()["hiperparametros"]
-    lecturas = {
-        "C": "Penalización moderadamente fuerte (C < 1): favorece la generalización "
-             "dado el tamaño de la muestra.",
-        "penalty": "L1 (Lasso): lleva a cero las variables poco informativas, "
-                   "haciendo selección automática de variables.",
-        "solver": "liblinear: el solver que admite penalización L1 en scikit-learn.",
-        "class_weight": "Sin reponderar: el desbalance 58/42 no es lo bastante severo "
-                        "como para requerirlo.",
-    }
-    return data_table(
-        ["Hiperparámetro", "Valor", "Lectura"],
-        [
-            [
-                clave,
-                f"{valor}" if not isinstance(valor, float) else f"{valor:.4f}",
-                lecturas.get(clave, ""),
-            ]
-            for clave, valor in hiperparametros.items()
         ],
     )
 
 
 def layout() -> html.Div:
     """Layout de la pestaña de metodología."""
-    metricas = load_metrics()
-    tiempos = metricas["tiempos_segundos"]
-
     return html.Div(
         [
             page_header(
                 "Metodología",
-                "Del CSV al modelo entrenado, en seis etapas reproducibles con la "
-                "misma semilla que usa el Jupyter Book.",
-                "🧪",
+                "Del CSV a las conclusiones del EDA, en seis etapas reproducibles "
+                "con la misma semilla que usa el Jupyter Book.",
+                "bi-clipboard-data",
             ),
             kpi_row(_kpis()),
             section_title("Las seis etapas"),
@@ -194,7 +204,6 @@ def layout() -> html.Div:
                                 html.Div(titulo, className="guide-name"),
                                 html.Div(descripcion, className="guide-text"),
                             ],
-                            color=SERIES[i % len(SERIES)],
                             className="guide-card",
                         ),
                         lg=4,
@@ -206,75 +215,67 @@ def layout() -> html.Div:
                 ],
                 className="g-3",
             ),
-            section_title("Preprocesamiento"),
+            section_title("Qué prueba se aplica a cada variable"),
             card(
                 [
                     paragraph(
-                        "El preprocesamiento vive dentro del pipeline, no antes de él. Esa "
-                        "decisión es la que permite que el formulario de la pestaña de "
-                        "predicción envíe la edad en años y las mutaciones como 0/1, sin "
-                        "replicar a mano ninguna transformación."
+                        "La prueba no se elige por costumbre sino por la naturaleza del "
+                        "dato: una variable continua y asimétrica, una categórica de "
+                        "cuatro niveles y un indicador binario no admiten el mismo "
+                        "contraste."
                     ),
-                    _tabla_preprocesamiento(),
+                    _tabla_variables(),
                     callout(
-                        "Se usa el conjunto completo de variables disponibles: la reducción "
-                        "del panel no se hace a mano recortando columnas, sino dejando que "
-                        "la penalización L1 decida cuáles sobreviven. Así la selección "
-                        "queda documentada por el propio modelo.",
-                        titulo="Estrategia de selección de variables",
-                        color=SERIES[2],
+                        "Toda la descripción se hace sobre el conjunto de entrenamiento. "
+                        "El de prueba permanece intacto para evaluar más adelante el "
+                        "modelo que salga de estos hallazgos.",
+                        titulo="Separación estricta",
                     ),
                 ],
-                titulo="Qué se le hace a cada variable",
-                color=COLOR_LGG,
+                titulo="Correspondencia entre tipo de dato y contraste",
             ),
-            section_title("Hiperparámetros y coste computacional"),
+            section_title("Las pruebas, una a una"),
             dbc.Row(
                 [
                     dbc.Col(
                         card(
-                            _tabla_hiperparametros(),
-                            titulo="Configuración seleccionada",
-                            subtitulo=f"Mejor combinación de las 52 evaluadas, por AUC-ROC en "
-                                      f"validación cruzada de {CV_FOLDS} particiones",
-                            color=COLOR_GBM,
-                        ),
-                        lg=8,
-                        className="mb-4",
-                    ),
-                    dbc.Col(
-                        card(
                             [
-                                bullet_list(
-                                    [
-                                        f"Búsqueda de hiperparámetros: {tiempos['busqueda']:.2f} s"
-                                        if tiempos["busqueda"]
-                                        else "Búsqueda de hiperparámetros: no se repitió "
-                                             "(se reutiliza la configuración del libro; "
-                                             "ejecuta train_model.py --buscar para repetirla)",
-                                        f"Entrenamiento final: {tiempos['entrenamiento']:.3f} s",
-                                        f"Inferencia sobre las {metricas['n_test']} "
-                                        f"observaciones de prueba: {tiempos['inferencia']:.4f} s",
-                                    ],
-                                    color=SERIES[3],
-                                ),
-                                paragraph(
-                                    "Los tiempos se separan a propósito: permiten comparar "
-                                    "de forma justa este baseline con modelos que no "
-                                    "necesitan una búsqueda exhaustiva."
-                                ),
-                                enlace_externo(
-                                    "Ver el EDA completo en el libro", URL_LIBRO_EDA
-                                ),
+                                html.Div(aplicacion, className="card-subtitle-custom"),
+                                paragraph(motivo),
                             ],
-                            titulo="Coste computacional",
-                            color=SERIES[3],
+                            titulo=nombre,
                         ),
                         lg=4,
-                        className="mb-4",
+                        md=6,
+                        xs=12,
+                        className="mb-3",
+                    )
+                    for i, (nombre, aplicacion, motivo) in enumerate(PRUEBAS)
+                ],
+                className="g-3",
+            ),
+            card(
+                [
+                    bullet_list(
+                        [
+                            "Nivel de significancia α = 0,05 en todos los contrastes.",
+                            "Una variable se considera con señal cuando es significativa "
+                            "y además alcanza |r| ≥ 0,10: la significancia sola no basta "
+                            "con muestras de este tamaño.",
+                            "El umbral de redundancia entre pares de variables se fija en "
+                            "V de Cramér > 0,70.",
+                        ],
                     ),
-                ]
+                    html.Div(
+                        enlace_externo(
+                            "Ver el desarrollo completo del EDA en el libro", URL_LIBRO_EDA
+                        ),
+                        className="mt-3",
+                    ),
+                ],
+                titulo="Criterios de decisión",
+                subtitulo="Los umbrales se fijaron antes de mirar los resultados",
             ),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )

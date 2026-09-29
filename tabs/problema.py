@@ -57,7 +57,7 @@ def layout() -> html.Div:
                 "El problema: decidir el grado con la menor información posible",
                 "Clasificar LGG frente a GBM es un problema de clasificación binaria, "
                 "pero con una restricción práctica: cada gen que se secuencia cuesta.",
-                "❗",
+                "bi-exclamation-circle",
             ),
             dbc.Row(
                 [
@@ -95,11 +95,9 @@ def layout() -> html.Div:
                                     "información, para que la reducción de costes sea una "
                                     "decisión informada y no un recorte a ciegas.",
                                     titulo="Cómo se plantea aquí",
-                                    color=COLOR_GBM,
                                 ),
                             ],
                             titulo="Planteamiento",
-                            color=COLOR_GBM,
                         ),
                         lg=6,
                         className="mb-4",
@@ -139,21 +137,18 @@ def layout() -> html.Div:
                             "Gender, PDGFRA, NF1, CSMD3, BCOR, PIK3CA y FAT4 no muestran "
                             "asociación apreciable con el grado en esta muestra.",
                         ],
-                        color=COLOR_LGG,
                     ),
                 ],
                 titulo="Reparto de las 23 predictoras",
                 subtitulo="Conjunto de entrenamiento · Spearman y chi-cuadrado",
-                color=SERIES[3],
             ),
             callout(
                 "Que una variable no discrimine el grado en esta muestra no significa que "
                 "sea irrelevante en oncología: puede importar para el pronóstico, la "
                 "respuesta al tratamiento o la supervivencia, que no son lo que este "
-                "modelo predice.",
+                "análisis mide.",
                 titulo="Alcance de la afirmación",
-                color=SERIES[4],
             ),
         ],
-        className="tab-content",
+        className="vista-pestana",
     )
