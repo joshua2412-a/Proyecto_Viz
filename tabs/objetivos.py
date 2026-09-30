@@ -157,6 +157,7 @@ def layout() -> html.Div:
                     ),
                 ],
                 titulo="Objetivo general",
+                tono="acento",
             ),
             section_title("Objetivos específicos"),
             dbc.Row(

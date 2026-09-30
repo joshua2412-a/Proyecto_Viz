@@ -132,6 +132,7 @@ def _ficha(variable: str) -> dbc.Card:
         ],
         titulo=f"Ficha de {ficha['nombre']}",
         className="mb-4",
+        tono="acento",
     )
 
 
@@ -158,6 +159,7 @@ def _panel_univariado(variable: str, ambito: str) -> html.Div:
                             stat_list(resumen["filas"]),
                             titulo="Resumen estadístico",
                             subtitulo=f"{resumen['n']} pacientes en la selección actual",
+                            tono="acento",
                         ),
                         lg=5,
                         className="mb-4",
@@ -184,22 +186,22 @@ def _panel_univariado(variable: str, ambito: str) -> html.Div:
 def _panel_pruebas(variable: str, ambito: str) -> dbc.Accordion:
     """Las pruebas aplicadas, plegadas como en los desplegables del libro."""
     prueba = prueba_bivariada(variable, ambito)
-    significativa = (
-        prueba["p_valor"] < ALFA and abs(prueba["rho"]) >= EFECTO_MINIMO
-    )
+    significativa = prueba["significativa"]
     p_texto = p_valor(prueba["p_valor"])
 
     if significativa:
         veredicto = (
             f"Se rechaza la hipótesis nula ({p_texto}) y la magnitud supera el "
-            f"umbral del proyecto (|ρ| ≥ {num(EFECTO_MINIMO, 2)}): la asociación es "
-            "estadísticamente distinguible del azar y además tiene tamaño "
+            f"umbral del proyecto ({prueba['magnitud_nombre']} = "
+            f"{num(prueba['magnitud'], 2)} ≥ {num(EFECTO_MINIMO, 2)}): la "
+            "asociación es distinguible del azar y además tiene tamaño "
             "suficiente para que merezca la pena mirarla."
         )
     elif prueba["p_valor"] < ALFA:
         veredicto = (
             f"Se rechaza la hipótesis nula ({p_texto}), pero la magnitud queda por "
-            f"debajo del umbral del proyecto (|ρ| ≥ {num(EFECTO_MINIMO, 2)}). "
+            f"debajo del umbral del proyecto ({prueba['magnitud_nombre']} = "
+            f"{num(prueba['magnitud'], 2)}, frente a {num(EFECTO_MINIMO, 2)}). "
             "Significancia no es magnitud: con esta muestra, una diferencia "
             "pequeña basta para salir significativa."
         )

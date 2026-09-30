@@ -122,19 +122,21 @@ def barra_superior() -> html.Div:
                         md=8,
                     ),
                     dbc.Col(
+                        # Solo el enlace al libro. Las etiquetas de Dash, Plotly
+                        # y pandas parecian botones y no llevaban a ningun sitio:
+                        # decoraban la cabecera y restaban peso al unico enlace
+                        # que si hace algo.
                         html.Div(
-                            [
-                                html.A(
-                                    "Jupyter Book",
-                                    href=URL_LIBRO,
-                                    target="_blank",
-                                    rel="noopener noreferrer",
-                                    className="tech-pill tech-pill-link",
-                                ),
-                                html.Span("Dash", className="tech-pill"),
-                                html.Span("Plotly", className="tech-pill"),
-                                html.Span("pandas", className="tech-pill"),
-                            ],
+                            html.A(
+                                [
+                                    html.I(className="bi bi-journal-text me-2"),
+                                    "Abrir el Jupyter Book",
+                                ],
+                                href=URL_LIBRO,
+                                target="_blank",
+                                rel="noopener noreferrer",
+                                className="boton-libro",
+                            ),
                             className="tech-pills",
                         ),
                         md=4,

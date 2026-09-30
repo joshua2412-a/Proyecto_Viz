@@ -494,6 +494,12 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
     El signo de Spearman da la dirección, pero solo se devuelve cuando tiene
     sentido: en una variable nominal de cuatro niveles como Race, ordenar las
     categorías es arbitrario y el signo no significaría nada.
+
+    Por el mismo motivo, la magnitud que decide si hay señal no siempre es la
+    misma: |ρ| para lo continuo y lo binario, donde el orden existe, y la V de
+    Cramér para lo nominal, donde no. `asociacion_con_grado()` usa |ρ| para
+    todo porque reproduce el criterio del Jupyter Book; aquí, que se mira
+    variable a variable, se puede afinar.
     """
     df = get_dataframe(ambito)
     tipo = tipo_variable(variable)
@@ -503,7 +509,7 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
     if tipo == TIPO_NUMERICA:
         lgg = df.loc[df[TARGET] == 0, variable]
         gbm = df.loc[df[TARGET] == 1, variable]
-        estadistico, p_valor = stats.mannwhitneyu(lgg, gbm, alternative="two-sided")
+        estadistico, p_prueba = stats.mannwhitneyu(lgg, gbm, alternative="two-sided")
         p_normalidad = float(stats.shapiro(df[variable])[1]) if len(df) <= 5000 else float("nan")
         detalle = [
             ("Hipótesis nula", "Las dos distribuciones de la variable son iguales "
@@ -518,9 +524,12 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
             "prueba": "U de Mann-Whitney",
             "motivo": "La variable es continua y no sigue una distribución normal, "
                       "así que se comparan rangos en vez de medias.",
-            "p_valor": float(p_valor),
+            "p_valor": float(p_prueba),
             "rho": rho,
             "v_cramer": float("nan"),
+            "magnitud": abs(rho),
+            "magnitud_nombre": "|ρ| de Spearman",
+            "significativa": bool(p_prueba < ALFA and abs(rho) >= EFECTO_MINIMO),
             "detalle": detalle,
             "direccion": "LGG" if rho < 0 else "GBM",
             "hay_direccion": True,
@@ -528,7 +537,7 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
         }
 
     tabla = pd.crosstab(df[variable], df[TARGET])
-    chi2, p_valor, gl, esperadas = stats.chi2_contingency(tabla.values)
+    chi2, p_prueba, gl, esperadas = stats.chi2_contingency(tabla.values)
     v_cramer = _cramer_v(tabla.values)[0]
     celdas_escasas = int((esperadas < 5).sum())
 
@@ -550,14 +559,23 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
                  "chi-cuadrado pierde precisión y el p-valor hay que tomarlo con "
                  "cautela.")
 
+    # En una binaria el orden de las dos categorías no es arbitrario, así que
+    # |ρ| vale como magnitud. En una nominal sí lo es, y la magnitud la tiene
+    # que dar la V de Cramér.
+    magnitud = abs(rho) if tipo == TIPO_BINARIA else float(v_cramer)
+    magnitud_nombre = "|ρ| de Spearman" if tipo == TIPO_BINARIA else "V de Cramér"
+
     return {
         "prueba": "Chi-cuadrado de independencia",
         "motivo": "Las dos variables son categóricas, así que se compara la tabla "
                   "de contingencia observada con la que cabría esperar si no "
                   "hubiera relación.",
-        "p_valor": float(p_valor),
+        "p_valor": float(p_prueba),
         "rho": rho,
         "v_cramer": float(v_cramer),
+        "magnitud": magnitud,
+        "magnitud_nombre": magnitud_nombre,
+        "significativa": bool(p_prueba < ALFA and magnitud >= EFECTO_MINIMO),
         "detalle": detalle,
         "direccion": "LGG" if rho < 0 else "GBM",
         "hay_direccion": tipo == TIPO_BINARIA,
@@ -639,7 +657,7 @@ def lectura_bivariada(variable: str, ambito: str = "train") -> list[str]:
     """Dos o tres frases sobre la relación de la variable con el grado."""
     prueba = prueba_bivariada(variable, ambito)
     tipo = tipo_variable(variable)
-    significativa = prueba["p_valor"] < ALFA and abs(prueba["rho"]) >= EFECTO_MINIMO
+    significativa = prueba["significativa"]
     lineas = []
 
     if tipo == TIPO_NUMERICA:
@@ -677,9 +695,10 @@ def lectura_bivariada(variable: str, ambito: str = "train") -> list[str]:
     elif prueba["p_valor"] < ALFA:
         lineas.append(
             f"El chi-cuadrado sale significativo ({p_valor(prueba['p_valor'])}), pero "
-            f"la magnitud es pequeña (ρ = {num(prueba['rho'], 2, signo=True)}, por debajo del umbral "
-            "de 0,10 que usa el proyecto): con 671 pacientes, una diferencia mínima "
-            "basta para alcanzar significancia."
+            f"la magnitud es pequeña ({prueba['magnitud_nombre']} = "
+            f"{num(prueba['magnitud'], 2)}, por debajo del umbral de "
+            f"{num(EFECTO_MINIMO, 2)} que usa el proyecto): con esta muestra, una "
+            "diferencia mínima basta para alcanzar significancia."
         )
     else:
         lineas.append(
@@ -690,6 +709,119 @@ def lectura_bivariada(variable: str, ambito: str = "train") -> list[str]:
     if prueba["aviso"]:
         lineas.append(prueba["aviso"])
     return lineas
+
+
+# --------------------------------------------------------------------------- #
+# Lecturas del EDA (pestaña Resultados)
+# --------------------------------------------------------------------------- #
+# Un gráfico enseña la forma; estas funciones dicen qué significa. Van al lado
+# de cada figura para que el visitante no tenga que deducir el hallazgo solo.
+#
+# Se calculan sobre los datos, nunca se escriben a mano: si cambia el ámbito o
+# el dataset, el texto cambia con él y no se queda mintiendo.
+
+def lectura_cohorte(ambito: str = "train") -> list[str]:
+    """Composición de la cohorte y edad al diagnóstico."""
+    proporciones = proporcion_grado(ambito).set_index("grado")
+    edad = estadisticas_edad(ambito).set_index("grade_label")
+    prueba = prueba_edad_por_grado(ambito)
+    diferencia = edad.loc["GBM", "mediana"] - edad.loc["LGG", "mediana"]
+
+    return [
+        f"La cohorte está repartida {pct(proporciones.loc['LGG', 'porcentaje'])} "
+        f"LGG y {pct(proporciones.loc['GBM', 'porcentaje'])} GBM. No hay "
+        "desbalance severo, así que los porcentajes de cada grupo se pueden "
+        "comparar sin corregir nada.",
+
+        f"El GBM se diagnostica {num(diferencia, 0)} años más tarde: mediana de "
+        f"{num(edad.loc['GBM', 'mediana'], 0)} años frente a "
+        f"{num(edad.loc['LGG', 'mediana'], 0)} en LGG, y la U de Mann-Whitney "
+        f"descarta que sea casualidad ({p_valor(prueba['p_valor'])}).",
+
+        "Aun así, las dos distribuciones se solapan de largo: la edad inclina la "
+        "balanza, no decide el diagnóstico. Un paciente de 50 años puede tener "
+        "cualquiera de los dos tumores.",
+    ]
+
+
+def lectura_clinicas(ambito: str = "train") -> list[str]:
+    """Género y grupo racial: las dos clínicas que no separan los grados."""
+    lineas = []
+    for variable, nombre in (("Gender", "El género"), ("Race", "El grupo racial")):
+        prueba = prueba_bivariada(variable, ambito)
+        veredicto = "sí separa" if prueba["significativa"] else "no separa"
+        lineas.append(
+            f"{nombre} {veredicto} los dos grados: chi-cuadrado con "
+            f"{p_valor(prueba['p_valor'])} y V de Cramér de "
+            f"{num(prueba['v_cramer'], 2)}."
+        )
+
+    tabla = distribucion_clinica("Race", ambito)
+    mayoritaria = tabla.groupby("categoria")["pacientes"].sum().idxmax()
+    total = tabla["pacientes"].sum()
+    parte = tabla.loc[tabla["categoria"] == mayoritaria, "pacientes"].sum()
+    lineas.append(
+        f"El reparto racial está muy desbalanceado: «{mayoritaria}» reúne el "
+        f"{pct(parte / total * 100)} de la cohorte. Las categorías minoritarias "
+        "tienen tan pocos pacientes que su porcentaje no es interpretable, y por "
+        "eso este hallazgo no se puede llevar a otra población."
+    )
+    return lineas
+
+
+def lectura_genes(ambito: str = "train") -> list[str]:
+    """Prevalencia de las mutaciones y cuáles abren más brecha."""
+    prevalencia = prevalencia_genes(ambito)
+    mas_comun = prevalencia.iloc[0]
+    brechas = prevalencia.reindex(
+        prevalencia["diferencia"].abs().sort_values(ascending=False).index
+    )
+    primera, segunda = brechas.iloc[0], brechas.iloc[1]
+    raros = int((prevalencia["prevalencia"] < 5).sum())
+
+    def hacia(fila):
+        return "LGG" if fila["diferencia"] < 0 else "GBM"
+
+    return [
+        f"{mas_comun['gen']} es la mutación más frecuente del panel "
+        f"({pct(mas_comun['prevalencia'])} de los pacientes), pero frecuente no "
+        "es lo mismo que informativo: lo que separa los grados es la diferencia "
+        "de prevalencia entre ellos, no la prevalencia global.",
+
+        f"Las dos brechas mayores son {primera['gen']} "
+        f"({num(abs(primera['diferencia']), 0)} puntos hacia {hacia(primera)}) y "
+        f"{segunda['gen']} ({num(abs(segunda['diferencia']), 0)} puntos hacia "
+        f"{hacia(segunda)}). Son los marcadores que de verdad distinguen.",
+
+        f"{raros} de los {len(prevalencia)} genes están mutados en menos del 5 % "
+        "de la cohorte. Aunque salieran asociados, cualquier conclusión sobre "
+        "ellos descansaría en un puñado de pacientes.",
+    ]
+
+
+def lectura_asociacion(ambito: str = "train") -> list[str]:
+    """El ranking de asociación: qué merece la pena medir."""
+    asociacion = asociacion_con_grado(ambito)
+    con_senal = asociacion[asociacion["significativa"]]
+    sin_senal = asociacion[~asociacion["significativa"]]
+    primera = asociacion.iloc[0]
+    hacia_lgg = int((con_senal["rho"] < 0).sum())
+
+    return [
+        f"{primera['variable']} encabeza el ranking con ρ = "
+        f"{num(primera['rho'], 2, signo=True)}, de signo "
+        + ("negativo, así que empuja hacia LGG."
+           if primera["rho"] < 0 else "positivo, así que empuja hacia GBM."),
+
+        f"{len(con_senal)} de las {len(asociacion)} predictoras superan a la vez "
+        f"los dos filtros del proyecto (p < {num(ALFA, 2)} y "
+        f"|ρ| ≥ {num(EFECTO_MINIMO, 2)}): {hacia_lgg} empujan hacia LGG y "
+        f"{len(con_senal) - hacia_lgg} hacia GBM.",
+
+        f"Las {len(sin_senal)} restantes son las primeras candidatas a salir del "
+        "panel. Esa es la respuesta a la pregunta del proyecto: qué merece la "
+        "pena medir cuando secuenciarlo todo sale caro.",
+    ]
 
 
 # --------------------------------------------------------------------------- #

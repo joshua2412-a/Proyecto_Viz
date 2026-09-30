@@ -13,6 +13,7 @@ from dash import Input, Output, callback, dcc, html
 from utils.formato import num, pct
 from utils.components import (
     bullet_list,
+    lectura_guiada,
     callout,
     card,
     data_table,
@@ -26,6 +27,10 @@ from utils.components import (
 from utils.data_loader import (
     AMBITO_NOMBRES,
     asociacion_con_grado,
+    lectura_asociacion,
+    lectura_clinicas,
+    lectura_cohorte,
+    lectura_genes,
     estadisticas_edad,
     prevalencia_genes,
     proporcion_grado,
@@ -174,17 +179,36 @@ def _bloque_eda(ambito: str) -> html.Div:
                             "Los puntos son atípicos dentro de cada grado, no en la "
                             "distribución global.",
                         ),
+                        lg=7,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        lectura_guiada(
+                            lectura_cohorte(ambito),
+                            titulo="Lectura · la cohorte y la edad",
+                        ),
                         lg=5,
                         className="mb-4",
                     ),
+                ]
+            ),
+            dbc.Row(
+                [
                     dbc.Col(
                         graph_card(
                             fig_clinica_por_grado("Gender", ambito),
                             "Género dentro de cada grado",
-                            "Predominio masculino en ambos grados, más marcado en GBM; la "
-                            "prueba chi-cuadrado no encuentra asociación significativa.",
+                            "Predominio masculino en ambos grados, más marcado en GBM.",
                         ),
                         lg=7,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        lectura_guiada(
+                            lectura_clinicas(ambito),
+                            titulo="Lectura · las variables demográficas",
+                        ),
+                        lg=5,
                         className="mb-4",
                     ),
                 ]
@@ -212,9 +236,21 @@ def _bloque_eda(ambito: str) -> html.Div:
                             "Prevalencia de mutación por gen y grado",
                             "Los doce genes que más separan a los dos grupos.",
                         ),
-                        lg=6,
+                        lg=7,
                         className="mb-4",
                     ),
+                    dbc.Col(
+                        lectura_guiada(
+                            lectura_genes(ambito),
+                            titulo="Lectura · el panel de mutaciones",
+                        ),
+                        lg=5,
+                        className="mb-4",
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
                     dbc.Col(
                         graph_card(
                             fig_asociacion_grado(ambito, top_n=14),
@@ -222,7 +258,15 @@ def _bloque_eda(ambito: str) -> html.Div:
                             "Signo negativo = empuja hacia LGG. Las barras rayadas no "
                             "alcanzan significancia estadística (p ≥ 0,05 o |r| < 0,10).",
                         ),
-                        lg=6,
+                        lg=7,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        lectura_guiada(
+                            lectura_asociacion(ambito),
+                            titulo="Lectura · qué merece la pena medir",
+                        ),
+                        lg=5,
                         className="mb-4",
                     ),
                 ]
@@ -277,6 +321,7 @@ def _bloque_eda(ambito: str) -> html.Div:
                                 ),
                             ],
                             titulo="Cómo se lee la matriz",
+                            tono="acento",
                         ),
                         lg=5,
                         className="mb-4",

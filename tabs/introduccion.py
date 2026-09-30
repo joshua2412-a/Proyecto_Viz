@@ -306,6 +306,7 @@ def _ficha_dataset() -> dbc.Card:
             ),
         ],
         titulo="Ficha técnica del dataset",
+        tono="acento",
     )
 
 

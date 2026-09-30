@@ -86,8 +86,14 @@ def card(
     subtitulo: str | None = None,
     color: str | None = None,
     className: str = "",
+    tono: str = "",
 ) -> dbc.Card:
-    """Tarjeta genérica con borde superior de color y cuerpo libre."""
+    """Tarjeta genérica con borde superior de color y cuerpo libre.
+
+    `tono` tiñe el fondo: "acento" para las tarjetas que interpretan o resumen,
+    "panel" para las que solo agrupan. Es cromo, no dato: el azul de LGG y el
+    coral de GBM siguen siendo los únicos colores que significan algo.
+    """
     cuerpo = []
     if titulo:
         cuerpo.append(html.H5(titulo, className="card-title-custom"))
@@ -97,11 +103,11 @@ def card(
 
     # Sin color por defecto: el color del tablero esta reservado a los datos.
     estilo = {"borderTop": f"2px solid {color}"} if color else {}
-    return dbc.Card(
-        dbc.CardBody(cuerpo),
-        className=f"soft-card {className}".strip(),
-        style=estilo,
+    clases = " ".join(
+        parte for parte in ("soft-card", f"tono-{tono}" if tono else "", className)
+        if parte
     )
+    return dbc.Card(dbc.CardBody(cuerpo), className=clases, style=estilo)
 
 
 def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = ACCENT_NEUTRAL) -> dbc.Card:
