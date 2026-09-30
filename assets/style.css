@@ -883,11 +883,16 @@ body {
   flex-direction: column;
 }
 
+/* La fila puede envolver: no todos los valores son cifras cortas. La
+   codificación de una variable o el enunciado de una hipótesis nula ocupan
+   una frase entera, y con nowrap se salían de la tarjeta. Cuando el valor no
+   cabe al lado de su etiqueta, baja a su propia línea. */
 .stat-fila {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
+  gap: 4px 16px;
   padding: 9px 0;
   border-bottom: 1px solid var(--hairline);
 }
@@ -898,18 +903,23 @@ body {
 }
 
 .stat-etiqueta {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: 0.84rem;
   color: var(--ink-soft);
   line-height: 1.4;
 }
 
 .stat-valor {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 0.9rem;
   font-weight: 600;
+  line-height: 1.45;
   color: var(--ink);
   text-align: right;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* Badge numerado, como el de los bloques de la portada */
