@@ -297,6 +297,10 @@ def fig_asociacion_grado(ambito: str = "train", top_n: int = 14) -> go.Figure:
     """
     datos = asociacion_con_grado(ambito).head(top_n).copy()
     datos["nombre"] = datos["variable"].map(lambda v: LABELS.get(v, v).replace("Mutación en ", ""))
+    # Sin ρ no hay barra que dibujar: Race sale de aquí porque es nominal y el
+    # libro también la excluye de su gráfico de Spearman. Su asociación se
+    # reporta por V de Cramér en la tabla y en la pestaña de exploración.
+    datos = datos.dropna(subset=["rho"])
     datos["efecto"] = np.where(datos["rho"] >= 0, "Hacia GBM", "Hacia LGG")
     datos["etiqueta"] = datos["rho"].map(lambda v: num(v, 2, signo=True))
     datos = datos.sort_values("rho")

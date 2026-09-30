@@ -51,6 +51,13 @@ AMBITO_NOMBRES = {
     "full": "dataset completo",
 }
 
+# Umbrales del proyecto, los mismos que aplica el notebook: una asociación
+# cuenta cuando es a la vez distinguible del azar y de magnitud suficiente.
+# Significancia no es magnitud, y con 671 pacientes una diferencia mínima
+# alcanza la primera sin merecer la segunda.
+ALFA = 0.05
+EFECTO_MINIMO = 0.10
+
 
 # --------------------------------------------------------------------------- #
 # Dataset
@@ -235,39 +242,64 @@ def _cramer_v(tabla: np.ndarray) -> tuple[float, float]:
 def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
     """Fuerza y signo de la asociación de cada predictora con el grado.
 
-    - `rho`: correlación de Spearman con `Grade` (da el signo: negativo empuja
-      hacia LGG, positivo hacia GBM).
-    - `v_cramer` y `p_valor`: prueba chi-cuadrado de independencia para las
-      variables categóricas y binarias.
+    Reproduce el criterio del notebook (jbook/01_EDA.ipynb):
+
+    - `rho`: Spearman con `Grade`, que es lo que aporta el signo (negativo
+      empuja hacia LGG, positivo hacia GBM). En `Race` queda vacío a
+      propósito: el libro la excluye de la matriz de Spearman
+      (`cols_spearman = [c for c in train_data.columns if c != 'Race']`)
+      porque ordenar cuatro grupos nominales es arbitrario.
+    - `p_valor` y `v_cramer`: prueba de independencia sobre la tabla de
+      contingencia. Chi-cuadrado, o Fisher exacto si la tabla es 2x2 y alguna
+      frecuencia esperada baja de 5, igual que la función
+      `prueba_independencia` del notebook. `Race` entra reagrupada en «White»
+      y «Other racial groups».
+    - `magnitud`: el número que decide si hay señal. |ρ| donde el orden
+      existe, y V de Cramér donde no, que es el caso de `Race`.
     """
     df = get_dataframe(ambito)
     filas = []
 
     for variable in [*NUMERIC_FEATURES, *CATEGORICAL_FEATURES, *GENE_FEATURES]:
-        rho, p_spearman = stats.spearmanr(df[variable], df[TARGET])
+        nominal = variable == "Race"
+        rho_bruto, p_spearman = stats.spearmanr(df[variable], df[TARGET])
+        rho = float("nan") if nominal else float(rho_bruto)
 
         if variable in NUMERIC_FEATURES:
-            v_cramer, p_valor = np.nan, float(p_spearman)
+            v_cramer, p_variable = float("nan"), float(p_spearman)
+            prueba = "Spearman"
             tipo = "Clínica numérica"
         else:
-            tabla = pd.crosstab(df[variable], df[TARGET]).values
-            v_cramer, p_valor = _cramer_v(tabla)
+            tabla = pd.crosstab(serie_para_prueba(variable, ambito), df[TARGET])
+            _, p_chi2, _, esperadas = stats.chi2_contingency(tabla.values)
+            v_cramer = _cramer_v(tabla.values)[0]
+            if tabla.values.shape == (2, 2) and bool((esperadas < 5).any()):
+                _, p_variable = stats.fisher_exact(tabla.values)
+                prueba = "Fisher exacto"
+            else:
+                p_variable = p_chi2
+                prueba = "Chi-cuadrado"
             tipo = "Clínica categórica" if variable in CATEGORICAL_FEATURES else "Mutación"
+
+        magnitud = float(v_cramer) if nominal else abs(rho)
 
         filas.append(
             {
                 "variable": variable,
                 "tipo": tipo,
-                "rho": float(rho),
-                "v_cramer": v_cramer,
-                "p_valor": p_valor,
-                "significativa": bool(p_valor < 0.05 and abs(rho) >= 0.10),
+                "prueba": prueba,
+                "rho": rho,
+                "v_cramer": float(v_cramer),
+                "p_valor": float(p_variable),
+                "magnitud": float(magnitud),
+                "significativa": bool(p_variable < ALFA and magnitud >= EFECTO_MINIMO),
             }
         )
 
+    # Las nominales no tienen |ρ| con el que ordenarse, así que van al final.
     return (
         pd.DataFrame(filas)
-        .sort_values("rho", key=np.abs, ascending=False)
+        .sort_values("rho", key=np.abs, ascending=False, na_position="last")
         .reset_index(drop=True)
     )
 
@@ -310,10 +342,6 @@ TIPO_NOMBRES = {
     TIPO_BINARIA: "Binaria",
     TIPO_CATEGORICA: "Categórica nominal",
 }
-
-# Umbrales del proyecto, los mismos que usa asociacion_con_grado()
-ALFA = 0.05
-EFECTO_MINIMO = 0.10
 
 
 def tipo_variable(variable: str) -> str:
@@ -728,13 +756,13 @@ def lectura_bivariada(variable: str, ambito: str = "train") -> list[str]:
 
     if significativa:
         lineas.append(
-            f"El chi-cuadrado encuentra asociación ({p_valor(prueba['p_valor'])}) y "
+            f"{prueba['prueba']} encuentra asociación ({p_valor(prueba['p_valor'])}) y "
             f"la V de Cramér la sitúa en {num(prueba['v_cramer'], 2)}"
             + (f", empujando hacia {prueba['direccion']}." if prueba["hay_direccion"] else ".")
         )
     elif prueba["p_valor"] < ALFA:
         lineas.append(
-            f"El chi-cuadrado sale significativo ({p_valor(prueba['p_valor'])}), pero "
+            f"{prueba['prueba']} sale significativa ({p_valor(prueba['p_valor'])}), pero "
             f"la magnitud es pequeña ({prueba['magnitud_nombre']} = "
             f"{num(prueba['magnitud'], 2)}, por debajo del umbral de "
             f"{num(EFECTO_MINIMO, 2)} que usa el proyecto): con esta muestra, una "
@@ -742,7 +770,7 @@ def lectura_bivariada(variable: str, ambito: str = "train") -> list[str]:
         )
     else:
         lineas.append(
-            f"El chi-cuadrado no encuentra asociación ({p_valor(prueba['p_valor'])}): "
+            f"{prueba['prueba']} no encuentra asociación ({p_valor(prueba['p_valor'])}): "
             "esta variable no distingue los dos grados en esta muestra."
         )
 
@@ -791,7 +819,7 @@ def lectura_clinicas(ambito: str = "train") -> list[str]:
         prueba = prueba_bivariada(variable, ambito)
         veredicto = "sí separa" if prueba["significativa"] else "no separa"
         lineas.append(
-            f"{nombre} {veredicto} los dos grados: chi-cuadrado con "
+            f"{nombre} {veredicto} los dos grados: {prueba['prueba'].lower()} con "
             f"{p_valor(prueba['p_valor'])} y V de Cramér de "
             f"{num(prueba['v_cramer'], 2)}."
         )

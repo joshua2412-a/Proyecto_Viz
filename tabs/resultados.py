@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dash_bootstrap_components as dbc
 import numpy as np
+import pandas as pd
 from dash import Input, Output, callback, dcc, html
 
 from utils.formato import num, pct
@@ -116,8 +117,16 @@ def _selector_ambito() -> html.Div:
 
 
 def _tabla_asociacion(ambito: str) -> dbc.Table:
-    """Las diez variables más asociadas al grado, con su prueba estadística."""
-    datos = asociacion_con_grado(ambito).head(10)
+    """Las diez variables más asociadas al grado, con su prueba estadística.
+
+    A las diez primeras por |ρ| se les añaden las nominales, que no tienen ρ
+    con el que ordenarse y si no se quedarían fuera de la tabla sin aparecer
+    en ningún otro sitio de esta pestaña.
+    """
+    todas = asociacion_con_grado(ambito)
+    con_signo = todas[todas["rho"].notna()].head(10)
+    nominales = todas[todas["rho"].isna()]
+    datos = pd.concat([con_signo, nominales])
     filas = []
     for _, fila in datos.iterrows():
         v_cramer = "—" if np.isnan(fila["v_cramer"]) else f"{num(fila['v_cramer'], 3)}"
@@ -125,15 +134,15 @@ def _tabla_asociacion(ambito: str) -> dbc.Table:
         filas.append(
             [
                 fila["variable"],
-                fila["tipo"],
+                fila["prueba"],
                 f"{num(fila['rho'], 3, signo=True)}",
                 v_cramer,
                 p_valor,
-                "LGG" if fila["rho"] < 0 else "GBM",
+                "—" if np.isnan(fila["rho"]) else ("LGG" if fila["rho"] < 0 else "GBM"),
             ]
         )
     return data_table(
-        ["Variable", "Tipo", "Spearman r", "V de Cramér", "p-valor", "Empuja hacia"],
+        ["Variable", "Prueba", "Spearman r", "V de Cramér", "p-valor", "Empuja hacia"],
         filas,
     )
 
@@ -256,7 +265,9 @@ def _bloque_eda(ambito: str) -> html.Div:
                             fig_asociacion_grado(ambito, top_n=14),
                             "Asociación de cada variable con el grado",
                             "Signo negativo = empuja hacia LGG. Las barras rayadas no "
-                            "alcanzan significancia estadística (p ≥ 0,05 o |r| < 0,10).",
+                            "alcanzan significancia estadística (p ≥ 0,05 o |r| < 0,10). "
+                            "El grupo racial no aparece: es nominal y no tiene signo, "
+                            "así que su asociación va por V de Cramér en la tabla.",
                         ),
                         lg=7,
                         className="mb-4",
@@ -273,9 +284,10 @@ def _bloque_eda(ambito: str) -> html.Div:
             ),
             card(
                 _tabla_asociacion(ambito),
-                titulo="Las diez variables más asociadas al grado",
-                subtitulo=f"{AMBITO_NOMBRES[ambito].capitalize()} · Spearman, V de Cramér y "
-                          "chi-cuadrado",
+                titulo="Las variables más asociadas al grado",
+                subtitulo=f"{AMBITO_NOMBRES[ambito].capitalize()} · las diez de mayor "
+                          "|ρ|, más el grupo racial, que es nominal y va por V de "
+                          "Cramér",
                 className="mb-4",
             ),
             section_title("Multicolinealidad entre mutaciones"),
