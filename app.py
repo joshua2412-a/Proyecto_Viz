@@ -6,6 +6,7 @@ Responsabilidades de este archivo, y solo estas:
   2. Instanciar la app de Dash con Bootstrap.
   3. Componer la barra superior y el sistema de pestañas.
   4. Enrutar la pestaña activa hacia el `layout()` del módulo correspondiente.
+  5. Atender a los botones de la guía de la portada, que cambian de pestaña.
 
 Todo el contenido vive en tabs/*.py y toda la lógica de datos en utils/*.py.
 El análisis completo, con su desarrollo estadístico, vive en el Jupyter Book de
@@ -18,7 +19,7 @@ Ejecución:
 from __future__ import annotations
 
 import dash_bootstrap_components as dbc
-from dash import Dash, Input, Output, callback, dcc, html
+from dash import ALL, Dash, Input, Output, callback, ctx, dcc, html, no_update
 
 from utils.config import DATA_PATH, URL_LIBRO
 from utils.theme import BG_PAGE, INK_MUTED, STATUS_CRITICAL
@@ -215,6 +216,9 @@ app.layout = html.Div(
             className="page-container",
         ),
         pie_pagina(),
+        # Salida muda del callback de scroll: un callback de Dash siempre tiene
+        # que escribir en algun sitio, y aqui lo que importa es el efecto.
+        dcc.Store(id="ancla-scroll"),
     ],
     className="app-root",
     style={"background": BG_PAGE},
@@ -253,7 +257,47 @@ def mostrar_pestana(tab_activa: str):
 
 
 # --------------------------------------------------------------------------- #
-# 7. Punto de entrada
+# 7. Navegación desde la guía de la introducción
+# --------------------------------------------------------------------------- #
+@callback(
+    Output("tabs-principal", "active_tab"),
+    Input({"type": "ir-a-pestana", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def ir_a_pestana(clics: list[int | None]):
+    """Lleva a la pestaña que anuncia la tarjeta pulsada en la portada.
+
+    Un solo callback atiende a todos los botones gracias al pattern matching:
+    el identificador de cada uno lleva dentro su `tab_id` de destino, que es el
+    mismo de PESTANAS. Añadir una entrada a la guía no obliga a tocar esto.
+
+    El guardia del principio es necesario: Dash dispara el callback también
+    cuando los botones se montan (al abrir la introducción), no solo al
+    pulsarlos, y sin él la pestaña saltaría sola.
+    """
+    if not ctx.triggered_id or not any(clics or []):
+        return no_update
+    return ctx.triggered_id["index"]
+
+
+# Cambiar de pestaña desde el pie de la portada dejaba al usuario a media
+# página, mirando el centro de la pestaña nueva. Esto lo devuelve arriba.
+app.clientside_callback(
+    """
+    function (pestana) {
+        var suave = !(window.matchMedia
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        window.scrollTo({ top: 0, behavior: suave ? 'smooth' : 'auto' });
+        return pestana;
+    }
+    """,
+    Output("ancla-scroll", "data"),
+    Input("tabs-principal", "active_tab"),
+)
+
+
+# --------------------------------------------------------------------------- #
+# 8. Punto de entrada
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
     # Este bloque SOLO corre al lanzar `python app.py` a mano. En el contenedor

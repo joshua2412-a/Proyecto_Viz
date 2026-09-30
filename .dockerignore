@@ -28,3 +28,6 @@ app.yaml
 .DS_Store
 Thumbs.db
 README.md
+
+# Copia de consulta de la version anterior (no se despliega)
+_version_anterior/

@@ -105,7 +105,17 @@ def card(
 
 
 def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = ACCENT_NEUTRAL) -> dbc.Card:
-    """Tarjeta de indicador: cifra protagonista + etiqueta + detalle opcional."""
+    """Tarjeta de indicador: cifra protagonista + etiqueta + detalle opcional.
+
+    La franja de color es un div absoluto, no un `border-left`. El motivo es que
+    asi `color` admite cualquier valor de fondo CSS y no solo un color plano: un
+    indicador que compara los dos grados puede llevar un degradado partido (azul
+    de LGG arriba, coral de GBM abajo), que es justo lo que hace la brecha de
+    IDH1 en la introduccion. Con un borde eso no se puede expresar.
+
+    El color sigue siendo semantico: neutro cuando la cifra no habla de un grado
+    concreto, y el color del grado cuando si lo hace.
+    """
     cuerpo = [
         html.Div(etiqueta.upper(), className="kpi-label"),
         html.Div(valor, className="kpi-value"),
@@ -113,9 +123,11 @@ def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = ACCENT_N
     if detalle:
         cuerpo.append(html.Div(detalle, className="kpi-detail"))
     return dbc.Card(
-        dbc.CardBody(cuerpo),
+        [
+            html.Div(className="kpi-accent", style={"background": color}),
+            dbc.CardBody(cuerpo),
+        ],
         className="soft-card kpi-card",
-        style={"borderLeft": f"3px solid {color}"},
     )
 
 
