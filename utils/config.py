@@ -103,6 +103,20 @@ RACE_LABELS = {
 }
 MUTACION_LABELS = {0: "No mutado (wildtype)", 1: "Mutado"}
 
+# Reagrupación de Race para las pruebas de independencia, exactamente la del
+# notebook (jbook/01_EDA.ipynb, celda de `race_agrupada`). Con los cuatro
+# niveles originales, Asian y American Indian or Alaska Native dejan casillas
+# con frecuencia esperada demasiado baja y el chi-cuadrado pierde validez.
+#
+# Solo afecta a la PRUEBA. La descripción sigue mostrando las cuatro
+# categorías, igual que en el libro.
+RACE_AGRUPADA = {
+    0: "White",
+    1: "Other racial groups",
+    2: "Other racial groups",
+    3: "Other racial groups",
+}
+
 # Etiquetas legibles para ejes, tablas y formularios
 LABELS = {
     "Grade": "Grado del glioma",

@@ -36,6 +36,7 @@ from utils.config import (
     MUTACION_LABELS,
     NUMERIC_FEATURES,
     RACE_LABELS,
+    RACE_AGRUPADA,
     RANDOM_STATE,
     TARGET,
     TEST_SIZE,
@@ -482,28 +483,47 @@ def tabla_bivariada(variable: str, ambito: str = "train") -> pd.DataFrame:
     return tabla
 
 
+def serie_para_prueba(variable: str, ambito: str):
+    """La columna tal como entra en la prueba de independencia.
+
+    Para `Race` devuelve la versión reagrupada en White / Other racial groups,
+    que es lo que hace el notebook: con los cuatro niveles originales, Asian y
+    American Indian or Alaska Native dejan casillas con frecuencia esperada
+    demasiado baja. Para el resto, la columna sin tocar.
+
+    La descripción y las figuras siguen usando las cuatro categorías: agrupar
+    es una decisión de la prueba, no de la descripción.
+    """
+    df = get_dataframe(ambito)
+    if variable == "Race":
+        return df[variable].map(RACE_AGRUPADA)
+    return df[variable]
+
+
 def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
     """La prueba que corresponde a la variable, con su tamaño del efecto.
 
-    Qué prueba y por qué:
+    Reproduce el criterio del notebook (jbook/01_EDA.ipynb):
+
       - Numérica: U de Mann-Whitney. No paramétrica porque Shapiro-Wilk rechaza
-        la normalidad de la edad (es bimodal), igual que en el notebook.
-      - Binaria o categórica: chi-cuadrado de independencia, con la V de Cramér
-        como magnitud, porque el chi-cuadrado solo dice si hay asociación.
+        la normalidad de la edad, que es bimodal.
+      - Categórica: chi-cuadrado de independencia sobre la tabla de
+        contingencia, con la V de Cramér como magnitud. Si la tabla es 2x2 y
+        alguna frecuencia esperada baja de 5, se reporta la prueba exacta de
+        Fisher en su lugar, que no depende de esa aproximación.
+      - `Race` entra reagrupada en dos categorías (ver serie_para_prueba).
 
-    El signo de Spearman da la dirección, pero solo se devuelve cuando tiene
-    sentido: en una variable nominal de cuatro niveles como Race, ordenar las
-    categorías es arbitrario y el signo no significaría nada.
+    El signo de Spearman da la dirección, pero solo donde significa algo. En
+    `Race` no se reporta: el notebook la excluye de la matriz de Spearman
+    precisamente porque ordenar grupos nominales es arbitrario.
 
-    Por el mismo motivo, la magnitud que decide si hay señal no siempre es la
-    misma: |ρ| para lo continuo y lo binario, donde el orden existe, y la V de
-    Cramér para lo nominal, donde no. `asociacion_con_grado()` usa |ρ| para
-    todo porque reproduce el criterio del Jupyter Book; aquí, que se mira
-    variable a variable, se puede afinar.
+    Por el mismo motivo la magnitud que decide si hay señal cambia con el tipo:
+    |ρ| en lo continuo y lo binario, donde el orden existe, y V de Cramér en lo
+    nominal, donde no.
     """
     df = get_dataframe(ambito)
     tipo = tipo_variable(variable)
-    rho, p_spearman = stats.spearmanr(df[variable], df[TARGET])
+    rho, _ = stats.spearmanr(df[variable], df[TARGET])
     rho = float(rho)
 
     if tipo == TIPO_NUMERICA:
@@ -517,8 +537,7 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
             ("Estadístico U", miles(estadistico)),
             ("Tamaño del efecto", f"ρ de Spearman = {num(rho, 3, signo=True)}"),
             ("Medianas", f"LGG {num(lgg.median())} · GBM {num(gbm.median())}"),
-            ("Normalidad (Shapiro-Wilk)",
-             p_valor(p_normalidad)),
+            ("Normalidad (Shapiro-Wilk)", p_valor(p_normalidad)),
         ]
         return {
             "prueba": "U de Mann-Whitney",
@@ -533,17 +552,34 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
             "detalle": detalle,
             "direccion": "LGG" if rho < 0 else "GBM",
             "hay_direccion": True,
-            "aviso": "",
+            "nota_metodo": "",
         }
 
-    tabla = pd.crosstab(df[variable], df[TARGET])
-    chi2, p_prueba, gl, esperadas = stats.chi2_contingency(tabla.values)
+    serie = serie_para_prueba(variable, ambito)
+    tabla = pd.crosstab(serie, df[TARGET])
+    chi2, p_chi2, gl, esperadas = stats.chi2_contingency(tabla.values)
     v_cramer = _cramer_v(tabla.values)[0]
-    celdas_escasas = int((esperadas < 5).sum())
+
+    # Misma regla que el notebook: en una 2x2 con frecuencias esperadas bajas,
+    # la aproximación chi-cuadrado no vale y se usa la prueba exacta.
+    usar_fisher = tabla.values.shape == (2, 2) and bool((esperadas < 5).any())
+    if usar_fisher:
+        _, p_prueba = stats.fisher_exact(tabla.values)
+        nombre_prueba = "Prueba exacta de Fisher"
+        motivo = ("La tabla es de 2x2 y alguna frecuencia esperada baja de 5, así "
+                  "que la aproximación del chi-cuadrado no es fiable y se calcula "
+                  "la probabilidad exacta.")
+    else:
+        p_prueba = p_chi2
+        nombre_prueba = "Chi-cuadrado de independencia"
+        motivo = ("Las dos variables son categóricas, así que se compara la tabla "
+                  "de contingencia observada con la que cabría esperar si no "
+                  "hubiera relación.")
 
     detalle = [
         ("Hipótesis nula", "La variable y el grado tumoral son independientes."),
         ("Estadístico χ²", f"{num(chi2, 2)} con {gl} grado{'s' if gl != 1 else ''} de libertad"),
+        ("Frecuencia esperada mínima", num(float(esperadas.min()), 1)),
         ("Tamaño del efecto", f"V de Cramér = {num(v_cramer, 3)}"),
     ]
     if tipo == TIPO_BINARIA:
@@ -552,24 +588,28 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
         detalle.append(("Dirección", "no aplica: la variable es nominal y ordenar "
                                      "sus categorías sería arbitrario"))
 
-    aviso = ""
-    if celdas_escasas:
-        aviso = (f"{celdas_escasas} de las {esperadas.size} casillas tienen una "
-                 "frecuencia esperada menor que 5, así que la aproximación "
-                 "chi-cuadrado pierde precisión y el p-valor hay que tomarlo con "
-                 "cautela.")
-
-    # En una binaria el orden de las dos categorías no es arbitrario, así que
-    # |ρ| vale como magnitud. En una nominal sí lo es, y la magnitud la tiene
-    # que dar la V de Cramér.
     magnitud = abs(rho) if tipo == TIPO_BINARIA else float(v_cramer)
     magnitud_nombre = "|ρ| de Spearman" if tipo == TIPO_BINARIA else "V de Cramér"
 
+    nota_metodo = ""
+    if variable == "Race":
+        nota_metodo = (
+            "Las cuatro categorías se reagruparon en «White» y «Other racial "
+            "groups» antes de la prueba, igual que en el libro: Asian y American "
+            "Indian or Alaska Native dejaban casillas con frecuencia esperada "
+            "demasiado baja. El gráfico sigue mostrando las cuatro, porque "
+            "agrupar es una decisión de la prueba y no de la descripción."
+        )
+    elif usar_fisher:
+        nota_metodo = (
+            "Se reporta Fisher exacto y no chi-cuadrado porque la tabla tiene "
+            f"una frecuencia esperada mínima de {num(float(esperadas.min()), 1)}, "
+            "por debajo de 5. Es la misma regla que aplica el notebook."
+        )
+
     return {
-        "prueba": "Chi-cuadrado de independencia",
-        "motivo": "Las dos variables son categóricas, así que se compara la tabla "
-                  "de contingencia observada con la que cabría esperar si no "
-                  "hubiera relación.",
+        "prueba": nombre_prueba,
+        "motivo": motivo,
         "p_valor": float(p_prueba),
         "rho": rho,
         "v_cramer": float(v_cramer),
@@ -579,7 +619,7 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
         "detalle": detalle,
         "direccion": "LGG" if rho < 0 else "GBM",
         "hay_direccion": tipo == TIPO_BINARIA,
-        "aviso": aviso,
+        "nota_metodo": nota_metodo,
     }
 
 
@@ -706,8 +746,8 @@ def lectura_bivariada(variable: str, ambito: str = "train") -> list[str]:
             "esta variable no distingue los dos grados en esta muestra."
         )
 
-    if prueba["aviso"]:
-        lineas.append(prueba["aviso"])
+    if prueba["nota_metodo"]:
+        lineas.append(prueba["nota_metodo"])
     return lineas
 
 

@@ -216,13 +216,13 @@ def _panel_pruebas(variable: str, ambito: str) -> dbc.Accordion:
         stat_list([("Prueba aplicada", prueba["prueba"]), *prueba["detalle"]]),
         callout(veredicto, titulo="Veredicto"),
     ]
-    if prueba["aviso"]:
+    if prueba["nota_metodo"]:
         contenido.append(
-            callout(prueba["aviso"], titulo="Cautela con este p-valor")
+            callout(prueba["nota_metodo"], titulo="Cómo se calculó, y por qué así")
         )
 
     return desplegable(
-        f"Pruebas estadísticas aplicadas · {prueba['prueba']}", contenido
+        f"Prueba estadística aplicada · {prueba['prueba']}", contenido
     )
 
 
