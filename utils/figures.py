@@ -24,14 +24,20 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from utils.config import LABELS
+from utils.formato import num, pct
 from utils.data_loader import (
+    TIPO_NUMERICA,
     asociacion_con_grado,
     distribucion_clinica,
+    distribucion_univariada,
     estadisticas_edad,
     get_dataframe,
     matriz_asociacion_genes,
+    nombre_variable,
     prevalencia_genes,
     proporcion_grado,
+    tabla_bivariada,
+    tipo_variable,
 )
 from utils.theme import (
     AXIS,
@@ -140,7 +146,7 @@ def fig_edad_por_grado(ambito: str = "train", nbins: int = 28) -> go.Figure:
             line_dash="dot",
             line_color=color,
             line_width=2,
-            annotation_text=f"mediana {grado}: {mediana:.1f}",
+            annotation_text=f"mediana {grado}: {num(mediana)}",
             annotation_position="top",
             annotation_font=dict(size=11, color=color),
         )
@@ -174,7 +180,7 @@ def fig_boxplot_edad(ambito: str = "train") -> go.Figure:
         fig.add_annotation(
             x=grado,
             y=float(fila["maximo"]),
-            text=f"media {fila['media']:.1f} ± {fila['desviacion']:.1f}",
+            text=f"media {num(fila['media'])} ± {num(fila['desviacion'])}",
             showarrow=False,
             yshift=18,
             font=dict(size=11, color=INK_SOFT),
@@ -194,7 +200,7 @@ def fig_boxplot_edad(ambito: str = "train") -> go.Figure:
 def fig_clinica_por_grado(variable: str, ambito: str = "train") -> go.Figure:
     """Composición de Gender o Race dentro de cada grado tumoral (en %)."""
     tabla = distribucion_clinica(variable, ambito)
-    tabla["etiqueta"] = tabla["porcentaje"].map(lambda v: f"{v:.1f}%")
+    tabla["etiqueta"] = tabla["porcentaje"].map(pct)
 
     fig = px.bar(
         tabla,
@@ -255,7 +261,7 @@ def fig_prevalencia_genes(ambito: str = "train", top_n: int = 12) -> go.Figure:
                 name=grado,
                 orientation="h",
                 marker=dict(color=color, line=dict(color=BG_CARD, width=1)),
-                text=[f"{valor:.1f}%" for valor in datos[grado]],
+                text=[pct(valor) for valor in datos[grado]],
                 textposition="outside",
                 textfont=dict(size=11, color=INK_SOFT),
                 cliponaxis=False,
@@ -292,7 +298,7 @@ def fig_asociacion_grado(ambito: str = "train", top_n: int = 14) -> go.Figure:
     datos = asociacion_con_grado(ambito).head(top_n).copy()
     datos["nombre"] = datos["variable"].map(lambda v: LABELS.get(v, v).replace("Mutación en ", ""))
     datos["efecto"] = np.where(datos["rho"] >= 0, "Hacia GBM", "Hacia LGG")
-    datos["etiqueta"] = datos["rho"].map(lambda v: f"{v:+.2f}")
+    datos["etiqueta"] = datos["rho"].map(lambda v: num(v, 2, signo=True))
     datos = datos.sort_values("rho")
 
     fig = px.bar(
@@ -375,3 +381,162 @@ def fig_matriz_genes(ambito: str = "train", top_n: int = 12) -> go.Figure:
         xaxis=dict(side="bottom", tickangle=-45),
     )
     return apply_theme(fig, height=520, margin=dict(l=90, r=24, t=40, b=90))
+
+
+# --------------------------------------------------------------------------- #
+# 7. Exploración interactiva: una figura por tipo de variable
+# --------------------------------------------------------------------------- #
+# Las dos funciones que siguen alimentan la pestaña Exploración, donde el
+# visitante elige la variable. La forma de la figura la decide el tipo de dato,
+# no un selector aparte: una continua pide una distribución y una categórica
+# pide una comparación de proporciones.
+def fig_univariada(variable: str, ambito: str = "train") -> go.Figure:
+    """La variable sola, sin cruzarla con el grado.
+
+    Una sola serie, así que va en el tono neutro de magnitud: aquí el color no
+    distingue grados y pintarla de azul de LGG sugeriría algo que no es.
+    """
+    nombre = nombre_variable(variable)
+
+    if tipo_variable(variable) == TIPO_NUMERICA:
+        serie = get_dataframe(ambito)[variable]
+        fig = go.Figure(
+            go.Histogram(
+                x=serie,
+                nbinsx=30,
+                marker=dict(color=TONO_BARRA, line=dict(color=BG_CARD, width=1)),
+                hovertemplate="%{x:.0f} años<br>%{y} pacientes<extra></extra>",
+            )
+        )
+        # La mediana marcada: da el centro sin que la arrastren los extremos
+        fig.add_vline(
+            x=float(serie.median()),
+            line=dict(color=INK_SOFT, width=1.2, dash="dash"),
+            annotation_text=f"mediana {num(serie.median(), 0)}",
+            annotation_position="top",
+            annotation_font=dict(size=11, color=INK_SOFT),
+        )
+        fig.update_layout(
+            xaxis_title=LABELS.get(variable, nombre),
+            yaxis_title="Pacientes",
+            bargap=0.04,
+        )
+        return apply_theme(_redondear_barras(fig, 3), height=330, showlegend=False)
+
+    datos = distribucion_univariada(variable, ambito)
+    fig = go.Figure(
+        go.Bar(
+            x=datos["pacientes"],
+            y=datos["categoria"],
+            orientation="h",
+            marker=dict(color=TONO_BARRA),
+            text=[pct(p) for p in datos["porcentaje"]],
+            textposition="outside",
+            textfont=dict(size=11, color=INK_SOFT),
+            hovertemplate="<b>%{y}</b><br>%{x} pacientes<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        xaxis_title="Pacientes",
+        yaxis_title="",
+        yaxis=dict(autorange="reversed"),
+        xaxis=dict(showgrid=True, gridcolor=GRID),
+        margin=dict(l=8, r=64, t=20, b=44),
+    )
+    altura = max(230, 74 + 46 * len(datos))
+    return apply_theme(_redondear_barras(fig), height=altura, showlegend=False)
+
+
+def fig_bivariada(variable: str, ambito: str = "train") -> go.Figure:
+    """La variable frente al grado tumoral.
+
+    Para una categórica se dibujan proporciones dentro de cada categoría y no
+    conteos: con clases de tamaños muy distintos, un conteo bruto solo muestra
+    cuál es el grupo más grande. La línea de referencia marca el porcentaje de
+    GBM de toda la cohorte, así se ve de un vistazo qué categorías se salen de
+    la media y cuáles solo repiten el promedio.
+    """
+    if tipo_variable(variable) == TIPO_NUMERICA:
+        df = get_dataframe(ambito)
+        fig = go.Figure()
+        for grado in ORDEN_GRADE:
+            serie = df.loc[df["grade_label"] == grado, variable]
+            fig.add_trace(
+                go.Histogram(
+                    x=serie,
+                    name=grado,
+                    nbinsx=26,
+                    histnorm="percent",
+                    marker=dict(color=COLOR_GRADE_MAP[grado],
+                                line=dict(color=BG_CARD, width=1)),
+                    opacity=0.78,
+                    hovertemplate=f"<b>{grado}</b><br>%{{x:.0f}} años<br>"
+                                  "%{y:.1f} % del grupo<extra></extra>",
+                )
+            )
+        fig.update_layout(
+            barmode="overlay",
+            xaxis_title=LABELS.get(variable, variable),
+            yaxis_title="% dentro de cada grado",
+            bargap=0.04,
+        )
+        return apply_theme(fig, height=360)
+
+    tabla = tabla_bivariada(variable, ambito)
+    # Orden: la categoría con más GBM arriba, para que la lectura empiece por
+    # donde está la señal en vez de por el orden alfabético.
+    orden = (
+        tabla[tabla["grade_label"] == "GBM"]
+        .sort_values("porcentaje")["categoria"]
+        .tolist()
+    )
+    faltan = [c for c in tabla["categoria"].unique() if c not in orden]
+    orden = faltan + orden
+
+    tamanos = tabla.groupby("categoria")["total_categoria"].first()
+    etiquetas = {c: f"{c}  (n = {tamanos[c]})" for c in orden}
+
+    fig = go.Figure()
+    for grado in ORDEN_GRADE:
+        parte = tabla[tabla["grade_label"] == grado].set_index("categoria").reindex(orden)
+        fig.add_trace(
+            go.Bar(
+                x=parte["porcentaje"],
+                y=[etiquetas[c] for c in orden],
+                name=grado,
+                orientation="h",
+                marker=dict(color=COLOR_GRADE_MAP[grado],
+                            line=dict(color=BG_CARD, width=1)),
+                text=[pct(v, 0) if v >= 9 else "" for v in parte["porcentaje"]],
+                textposition="inside",
+                insidetextanchor="middle",
+                textfont=dict(size=11, color="#FFFFFF"),
+                customdata=parte["pacientes"],
+                hovertemplate=f"<b>{grado}</b><br>%{{x:.1f}} %% de la categoría"
+                              "<br>%{customdata} pacientes<extra></extra>",
+            )
+        )
+
+    gbm_cohorte = float(
+        (get_dataframe(ambito)["grade_label"] == "GBM").mean() * 100
+    )
+    fig.add_vline(
+        x=100 - gbm_cohorte,
+        line=dict(color=INK_SOFT, width=1.2, dash="dot"),
+        annotation_text=f"GBM en la cohorte: {pct(gbm_cohorte, 0)}",
+        annotation_position="top left",
+        annotation_font=dict(size=11, color=INK_SOFT),
+    )
+
+    fig.update_layout(
+        barmode="stack",
+        # Plotly invierte la leyenda de las barras apiladas por defecto, y
+        # entonces no coincide con el orden en que se ven los colores.
+        legend_traceorder="normal",
+        xaxis=dict(title="% dentro de la categoría", range=[0, 100],
+                   showgrid=True, gridcolor=GRID, ticksuffix=" %"),
+        yaxis_title="",
+        margin=dict(l=8, r=20, t=52, b=44),
+    )
+    altura = max(260, 118 + 52 * len(orden))
+    return apply_theme(_redondear_barras(fig, 3), height=altura)

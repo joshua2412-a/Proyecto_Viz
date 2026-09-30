@@ -9,6 +9,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import html
 
+from utils.formato import num
 from utils.components import (
     bullet_list,
     callout,
@@ -40,20 +41,20 @@ def _kpis() -> list[dict]:
 
     return [
         {
-            "valor": f"{edad.loc['LGG', 'media']:.1f} años",
+            "valor": f"{num(edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Edad media en LGG",
-            "detalle": f"± {edad.loc['LGG', 'desviacion']:.1f} · {int(edad.loc['LGG', 'pacientes'])} pacientes",
+            "detalle": f"± {num(edad.loc['LGG', 'desviacion'], 1)} · {int(edad.loc['LGG', 'pacientes'])} pacientes",
         },
         {
-            "valor": f"{edad.loc['GBM', 'media']:.1f} años",
+            "valor": f"{num(edad.loc['GBM', 'media'], 1)} años",
             "etiqueta": "Edad media en GBM",
-            "detalle": f"± {edad.loc['GBM', 'desviacion']:.1f} · {int(edad.loc['GBM', 'pacientes'])} pacientes",
+            "detalle": f"± {num(edad.loc['GBM', 'desviacion'], 1)} · {int(edad.loc['GBM', 'pacientes'])} pacientes",
         },
         {
-            "valor": f"{edad.loc['GBM', 'media'] - edad.loc['LGG', 'media']:.1f} años",
+            "valor": f"{num(edad.loc['GBM', 'media'] - edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Diferencia de edad",
             "detalle": "Mann-Whitney p < 0,0001" if prueba["p_valor"] < 0.0001
-            else f"Mann-Whitney p = {prueba['p_valor']:.4f}",
+            else f"Mann-Whitney p = {num(prueba['p_valor'], 4)}",
         },
         {
             "valor": f"{tamanos['train']}",
@@ -185,10 +186,10 @@ def layout() -> html.Div:
                             [
                                 fila["grade_label"],
                                 f"{int(fila['pacientes'])}",
-                                f"{fila['media']:.2f} ± {fila['desviacion']:.2f}",
-                                f"{fila['mediana']:.2f}",
-                                f"{fila['q1']:.2f} - {fila['q3']:.2f}",
-                                f"{fila['minimo']:.2f} - {fila['maximo']:.2f}",
+                                f"{num(fila['media'], 2)} ± {num(fila['desviacion'], 2)}",
+                                f"{num(fila['mediana'], 2)}",
+                                f"{num(fila['q1'], 2)} - {num(fila['q3'], 2)}",
+                                f"{num(fila['minimo'], 2)} - {num(fila['maximo'], 2)}",
                             ]
                             for _, fila in estadisticas_edad(AMBITO).iterrows()
                         ],

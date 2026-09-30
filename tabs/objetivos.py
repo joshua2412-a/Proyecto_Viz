@@ -10,6 +10,7 @@ import dash_bootstrap_components as dbc
 import numpy as np
 from dash import html
 
+from utils.formato import num, pct
 from utils.components import (
     card,
     data_table,
@@ -99,18 +100,18 @@ def _tabla_criterios() -> dbc.Table:
         ],
         [
             "La estratificación conserva la proporción de clases",
-            f"GBM: {gbm_train:.1f}% en entrenamiento y {gbm_test:.1f}% en prueba "
-            f"({brecha:.1f} puntos de diferencia)",
+            f"GBM: {pct(gbm_train, 1)} en entrenamiento y {pct(gbm_test, 1)} en prueba "
+            f"({num(brecha, 1)} puntos de diferencia)",
             "Cumple" if brecha < 2 else "Revisar",
         ],
         [
             "Al menos un marcador con asociación fuerte (|r| ≥ 0,50)",
-            f"El máximo observado es |r| = {rho_maximo:.2f}",
+            f"El máximo observado es |r| = {num(rho_maximo, 2)}",
             "Cumple" if rho_maximo >= 0.50 else "No cumple",
         ],
         [
             "Sin multicolinealidad estructural (V de Cramér < 0,70)",
-            f"El par de genes más asociado llega a V = {v_maxima:.2f}",
+            f"El par de genes más asociado llega a V = {num(v_maxima, 2)}",
             "Cumple" if v_maxima < 0.70 else "Revisar",
         ],
         [

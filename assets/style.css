@@ -39,11 +39,27 @@
   --lgg: #4e8cd9;
   --gbm: #e0785a;
 
+  /* Variantes del acento, para degradados y realces */
+  --accent-deep: #163c6b;
+  --accent-soft: #3d6fae;
+
+  /* Degradados. Son de cromo, no de dato: tinen superficies y filetes, nunca
+     codifican una magnitud (para eso estan las rampas de utils/theme.py). */
+  --grad-acento: linear-gradient(135deg, #1e4e86 0%, #3d6fae 100%);
+  --grad-filete: linear-gradient(90deg, #1e4e86 0%, #4e8cd9 55%, rgba(78, 140, 217, 0) 100%);
+  --grad-tarjeta: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  --grad-destacado: linear-gradient(135deg, #eef3fa 0%, #e6edf8 100%);
+  --grad-oscuro: linear-gradient(135deg, #0f1e33 0%, #17345f 100%);
+
+  /* Trama diagonal para las bandas oscuras. Va en la superficie, no encima del
+     texto, y a opacidad muy baja: da materia sin competir con el contenido. */
+  --trama-clara: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cpath d='M0 22L22 0M-6 6L6 -6M16 28L28 16' stroke='%23ffffff' stroke-opacity='0.055' stroke-width='1'/%3E%3C/svg%3E");
+
   /* Geometría */
   --radius: 10px;
   --radius-sm: 7px;
-  --shadow: 0 1px 2px rgba(15, 30, 51, 0.05);
-  --shadow-hover: 0 2px 10px rgba(15, 30, 51, 0.09);
+  --shadow: 0 1px 2px rgba(15, 30, 51, 0.06), 0 1px 1px rgba(15, 30, 51, 0.04);
+  --shadow-hover: 0 4px 16px rgba(15, 30, 51, 0.11);
 
   /* Tipografía */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -264,23 +280,37 @@ body {
 }
 
 /* Rótulo editorial: mayúsculas pequeñas con filete, sin barra de color */
+/* El filete degradado marca el comienzo de cada seccion y es lo que da ritmo
+   a una pestana larga: sin el, todos los titulos pesan igual. */
 .section-title {
+  position: relative;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--ink-muted);
-  margin: 40px 0 18px;
-  padding: 0 0 10px;
+  color: var(--accent);
+  margin: 44px 0 18px;
+  padding: 15px 0 10px;
   border-bottom: 1px solid var(--hairline);
   line-height: 1.3;
+}
+
+.section-title::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 54px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--grad-filete);
 }
 
 /* -------------------------------------------------------------------------- */
 /* Tarjetas                                                                   */
 /* -------------------------------------------------------------------------- */
 .soft-card {
-  background: var(--bg-card);
+  background: var(--grad-tarjeta);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -303,7 +333,14 @@ body {
   padding: 22px 24px;
 }
 
+/* Cada tarjeta con titulo lleva una marca de acento a su izquierda. Es la
+   pieza que da color al tablero sin tocar el codigo de las pestanas: basta con
+   que la tarjeta tenga titulo. */
 .card-title-custom {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--ink);
@@ -312,11 +349,21 @@ body {
   letter-spacing: -0.005em;
 }
 
+.card-title-custom::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 3px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--grad-acento);
+}
+
 .card-subtitle-custom {
   font-size: 0.83rem;
   color: var(--ink-muted);
   margin: 0 0 14px;
   line-height: 1.5;
+  padding-left: 12px;
 }
 
 .body-text {
@@ -414,7 +461,17 @@ body {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
+}
+
+/* Lavado de color hacia la franja: separa el indicador de una tarjeta normal
+   de un vistazo, que era justo lo que costaba antes. */
+.kpi-card {
+  background-image: linear-gradient(100deg, #f3f7fc 0%, #ffffff 42%);
+}
+
+.kpi-card:hover {
+  transform: translateY(-1px);
 }
 
 .kpi-card .card-body {
@@ -426,13 +483,13 @@ body {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-muted);
+  color: var(--accent);
   margin-bottom: 9px;
 }
 
 /* La cifra va en tinta: el texto nunca lleva el color de una serie */
 .kpi-value {
-  font-size: 1.7rem;
+  font-size: 1.85rem;
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -475,9 +532,12 @@ body {
 }
 
 .callout {
+  position: relative;
   border-radius: var(--radius-sm);
   padding: 16px 20px;
   margin: 18px 0 22px;
+  background-image: var(--grad-destacado);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .callout-title {
@@ -676,6 +736,269 @@ body {
   .bloque-flecha {
     opacity: 1;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Piezas de la exploracion interactiva                                       */
+/* -------------------------------------------------------------------------- */
+/* Subpestanas del modulo. Deliberadamente distintas de las principales: son
+   dos vistas del mismo contenido, no dos secciones del trabajo, y si pesaran
+   igual competirian con la navegacion de arriba. */
+.sub-tabs {
+  border-bottom: 1px solid var(--hairline);
+  gap: 4px;
+  margin-bottom: 22px;
+  flex-wrap: nowrap;
+}
+
+.sub-tabs .nav-link,
+.sub-tab {
+  border: 0 !important;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+  padding: 11px 20px !important;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-muted) !important;
+  background: transparent !important;
+  position: relative;
+  transition: color 0.16s ease, background 0.16s ease;
+  white-space: nowrap;
+}
+
+.sub-tabs .nav-link:hover {
+  color: var(--ink) !important;
+  background: var(--bg-soft) !important;
+}
+
+.sub-tabs .nav-link.active,
+.sub-tabs .sub-tab.sub-tab-active {
+  color: var(--accent) !important;
+  background: var(--bg-card) !important;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* Tarjeta de controles: filete degradado arriba para que se lea como el
+   mando del modulo y no como una tarjeta de contenido mas. */
+.controles-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.controles-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--grad-acento);
+}
+
+.controles-card .card-body {
+  padding: 20px 24px;
+}
+
+.selector-variable .Select-control,
+.selector-variable .Select-menu-outer {
+  border-color: var(--hairline-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.selector-variable .Select-control:hover {
+  border-color: var(--accent);
+}
+
+.selector-variable .is-focused:not(.is-open) > .Select-control {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(30, 78, 134, 0.16);
+}
+
+/* Papel de la variable, al pie de su ficha */
+.ficha-papel {
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ink-muted);
+}
+
+/* Banda oscura con trama: abre la pestana de exploracion y separa el modulo
+   interactivo del resto. La trama va en la superficie, nunca sobre el texto. */
+.banda-oscura {
+  position: relative;
+  overflow: hidden;
+  background-color: #0f1e33;
+  background-image: var(--trama-clara), var(--grad-oscuro);
+  border-radius: var(--radius);
+  padding: 26px 30px;
+  margin-bottom: 24px;
+  color: var(--header-ink);
+}
+
+.banda-oscura .banda-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb4e6;
+  margin-bottom: 9px;
+}
+
+.banda-oscura .banda-titulo {
+  font-size: 1.32rem;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  color: var(--header-ink);
+  margin: 0 0 9px;
+}
+
+.banda-oscura .banda-texto {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--header-ink-muted);
+  max-width: 68ch;
+  margin: 0;
+}
+
+/* Resumen estadistico: etiqueta a la izquierda, cifra a la derecha. La cifra
+   va en versalitas tabulares para que las unidades queden alineadas. */
+.stat-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.stat-fila:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.stat-etiqueta {
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.stat-valor {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Badge numerado, como el de los bloques de la portada */
+.badge-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  background: var(--grad-acento);
+  box-shadow: 0 1px 3px rgba(30, 78, 134, 0.3);
+}
+
+.badge-numero.badge-gbm {
+  background: linear-gradient(135deg, #c2542f 0%, #e0785a 100%);
+  box-shadow: 0 1px 3px rgba(194, 84, 47, 0.3);
+}
+
+/* Etiqueta de tipo de variable */
+.chip-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: var(--grad-acento);
+}
+
+/* Lectura guiada: el mensaje del grafico, al lado del grafico */
+.lectura-card .card-body {
+  padding: 20px 22px;
+}
+
+.lectura-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lectura-lista li {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 13px;
+  font-size: 0.88rem;
+  line-height: 1.62;
+  color: var(--ink-soft);
+}
+
+.lectura-lista li:last-child {
+  margin-bottom: 0;
+}
+
+.lectura-lista li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--grad-acento);
+}
+
+/* Desplegable de las pruebas, al estilo de los del Jupyter Book */
+.desplegable .accordion-item {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm) !important;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.desplegable .accordion-button {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--grad-destacado);
+  padding: 13px 18px;
+  box-shadow: none;
+}
+
+.desplegable .accordion-button:not(.collapsed) {
+  color: var(--accent);
+  background: var(--grad-destacado);
+}
+
+.desplegable .accordion-button:focus {
+  box-shadow: 0 0 0 2px rgba(30, 78, 134, 0.25);
+}
+
+.desplegable .accordion-body {
+  padding: 16px 18px;
+  background: var(--bg-card);
 }
 
 /* -------------------------------------------------------------------------- */

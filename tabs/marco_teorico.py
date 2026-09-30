@@ -10,6 +10,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
+from utils.formato import num, pct
 from utils.components import (
     bullet_list,
     callout,
@@ -135,8 +136,8 @@ def _tabla_genes() -> dbc.Table:
             [
                 gen,
                 GENE_DESCRIPCION.get(gen, ""),
-                f"{fila_prev['prevalencia']:.1f}%",
-                f"{rho:+.2f} → {hacia}{marca}",
+                f"{pct(fila_prev['prevalencia'], 1)}",
+                f"{num(rho, 2, signo=True)} → {hacia}{marca}",
             ]
         )
     return data_table(

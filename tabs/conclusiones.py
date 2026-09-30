@@ -1,5 +1,5 @@
 """
-Pestaña 9 · Conclusiones
+Pestaña 10 · Conclusiones
 Qué quedó establecido con el análisis exploratorio, qué significa para el
 objetivo de reducir el panel de secuenciación y qué falta por hacer.
 """
@@ -10,6 +10,7 @@ import dash_bootstrap_components as dbc
 import numpy as np
 from dash import html
 
+from utils.formato import num, pct
 from utils.components import (
     bullet_list,
     callout,
@@ -68,12 +69,12 @@ def _kpis() -> list[dict]:
 
     return [
         {
-            "valor": f"{idh1:+.2f}",
+            "valor": f"{num(idh1, 2, signo=True)}",
             "etiqueta": "Spearman de IDH1",
             "detalle": "El marcador más discriminante, y de signo protector",
         },
         {
-            "valor": f"{edad.loc['GBM', 'media'] - edad.loc['LGG', 'media']:.1f} años",
+            "valor": f"{num(edad.loc['GBM', 'media'] - edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Brecha de edad",
             "detalle": "Entre el diagnóstico de GBM y el de LGG",
         },
@@ -83,7 +84,7 @@ def _kpis() -> list[dict]:
             "detalle": f"Sobre {tamanos['train']} pacientes de entrenamiento",
         },
         {
-            "valor": f"{matriz.max():.2f}",
+            "valor": f"{num(matriz.max(), 2)}",
             "etiqueta": "Redundancia máxima",
             "detalle": "V de Cramér del par de genes más asociado (umbral: 0,70)",
         },
@@ -104,15 +105,15 @@ def _tabla_hallazgos() -> dbc.Table:
         [
             [
                 "IDH1 es el marcador dominante",
-                f"r = {asociacion.loc['IDH1', 'rho']:+.2f} · mutado en "
-                f"{idh1['LGG']:.1f}% de LGG frente a {idh1['GBM']:.1f}% de GBM",
+                f"r = {num(asociacion.loc['IDH1', 'rho'], 2, signo=True)} · mutado en "
+                f"{pct(idh1['LGG'], 1)} de LGG frente a {pct(idh1['GBM'], 1)} de GBM",
                 "Su presencia es casi por sí sola una firma de glioma de bajo grado.",
             ],
             [
                 "La edad aporta señal clínica independiente",
-                f"r = {asociacion.loc['Age_at_diagnosis', 'rho']:+.2f} · "
-                f"{edad.loc['GBM', 'media']:.1f} años de media en GBM frente a "
-                f"{edad.loc['LGG', 'media']:.1f} en LGG",
+                f"r = {num(asociacion.loc['Age_at_diagnosis', 'rho'], 2, signo=True)} · "
+                f"{num(edad.loc['GBM', 'media'], 1)} años de media en GBM frente a "
+                f"{num(edad.loc['LGG', 'media'], 1)} en LGG",
                 "Una variable que ya está en la historia clínica y no cuesta nada "
                 "medir discrimina casi tanto como una mutación.",
             ],

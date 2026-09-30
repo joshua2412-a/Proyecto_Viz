@@ -156,6 +156,74 @@ def callout(texto, titulo: str | None = None, color: str = ACCENT_NEUTRAL) -> ht
 
 
 # --------------------------------------------------------------------------- #
+# Piezas de la exploración interactiva
+# --------------------------------------------------------------------------- #
+def banda_oscura(titulo: str, texto: str, eyebrow: str = "") -> html.Div:
+    """Banda de tinta con trama diagonal, para abrir una pestaña o un módulo.
+
+    Es el único sitio donde el fondo lleva materia: separa lo interactivo del
+    resto sin recurrir a más color, que está reservado a los datos.
+    """
+    hijos = []
+    if eyebrow:
+        hijos.append(html.Div(eyebrow, className="banda-eyebrow"))
+    hijos.append(html.H3(titulo, className="banda-titulo"))
+    hijos.append(html.P(texto, className="banda-texto"))
+    return html.Div(hijos, className="banda-oscura")
+
+
+def stat_list(filas: Sequence[tuple[str, str]]) -> html.Div:
+    """Lista de estadísticos: etiqueta a la izquierda, cifra a la derecha."""
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Span(etiqueta, className="stat-etiqueta"),
+                    html.Span(valor, className="stat-valor"),
+                ],
+                className="stat-fila",
+            )
+            for etiqueta, valor in filas
+        ],
+        className="stat-list",
+    )
+
+
+def badge_numero(texto: str, variante: str = "") -> html.Span:
+    """Distintivo numerado. `variante="gbm"` lo pinta en coral."""
+    clase = "badge-numero badge-gbm" if variante == "gbm" else "badge-numero"
+    return html.Span(texto, className=clase)
+
+
+def chip_tipo(texto: str) -> html.Span:
+    """Etiqueta redonda para el tipo de variable."""
+    return html.Span(texto, className="chip-tipo")
+
+
+def lectura_guiada(lineas: Iterable, titulo: str = "Lectura guiada") -> dbc.Card:
+    """Tarjeta con el mensaje del gráfico, para poner justo a su lado.
+
+    Es la pieza que convierte una figura en un hallazgo: sin ella, el visitante
+    ve la forma pero tiene que deducir solo qué significa.
+    """
+    return card(
+        html.Ul([html.Li(linea) for linea in lineas], className="lectura-lista"),
+        titulo=titulo,
+        className="lectura-card",
+    )
+
+
+def desplegable(titulo: str, contenido, abierto: bool = False) -> dbc.Accordion:
+    """Bloque plegable, al estilo de los desplegables de genes del Jupyter Book."""
+    return dbc.Accordion(
+        [dbc.AccordionItem(contenido, title=titulo)],
+        start_collapsed=not abierto,
+        flush=False,
+        className="desplegable",
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Gráficos y tablas
 # --------------------------------------------------------------------------- #
 def graph_card(figura, titulo: str, nota: str = "", graph_id: str | None = None) -> dbc.Card:

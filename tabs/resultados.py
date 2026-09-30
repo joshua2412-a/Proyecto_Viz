@@ -1,5 +1,5 @@
 """
-Pestaña 7 · Resultados
+Pestaña 8 · Resultados
 El análisis exploratorio completo, con un selector que permite recorrer el
 mismo conjunto de figuras sobre entrenamiento, prueba o el dataset entero.
 """
@@ -10,6 +10,7 @@ import dash_bootstrap_components as dbc
 import numpy as np
 from dash import Input, Output, callback, dcc, html
 
+from utils.formato import num, pct
 from utils.components import (
     bullet_list,
     callout,
@@ -57,18 +58,18 @@ def _kpis() -> list[dict]:
 
     return [
         {
-            "valor": f"{mas_fuerte['rho']:+.2f}",
+            "valor": f"{num(mas_fuerte['rho'], 2, signo=True)}",
             "etiqueta": f"Asociación de {mas_fuerte['variable']}",
             "detalle": "El marcador con mayor capacidad discriminativa",
         },
         {
-            "valor": f"{edad.loc['GBM', 'media'] - edad.loc['LGG', 'media']:.1f} años",
+            "valor": f"{num(edad.loc['GBM', 'media'] - edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Diferencia de edad",
-            "detalle": f"GBM {edad.loc['GBM', 'media']:.1f} frente a LGG "
-                       f"{edad.loc['LGG', 'media']:.1f}",
+            "detalle": f"GBM {num(edad.loc['GBM', 'media'], 1)} frente a LGG "
+                       f"{num(edad.loc['LGG', 'media'], 1)}",
         },
         {
-            "valor": f"{idh1['LGG']:.0f}% vs {idh1['GBM']:.0f}%",
+            "valor": f"{pct(idh1['LGG'], 0)} vs {pct(idh1['GBM'], 0)}",
             "etiqueta": "IDH1 mutado: LGG vs GBM",
             "detalle": "Prevalencia de la mutación en cada grado",
         },
@@ -112,13 +113,13 @@ def _tabla_asociacion(ambito: str) -> dbc.Table:
     datos = asociacion_con_grado(ambito).head(10)
     filas = []
     for _, fila in datos.iterrows():
-        v_cramer = "—" if np.isnan(fila["v_cramer"]) else f"{fila['v_cramer']:.3f}"
-        p_valor = "< 0,0001" if fila["p_valor"] < 0.0001 else f"{fila['p_valor']:.4f}"
+        v_cramer = "—" if np.isnan(fila["v_cramer"]) else f"{num(fila['v_cramer'], 3)}"
+        p_valor = "< 0,0001" if fila["p_valor"] < 0.0001 else f"{num(fila['p_valor'], 4)}"
         filas.append(
             [
                 fila["variable"],
                 fila["tipo"],
-                f"{fila['rho']:+.3f}",
+                f"{num(fila['rho'], 3, signo=True)}",
                 v_cramer,
                 p_valor,
                 "LGG" if fila["rho"] < 0 else "GBM",
@@ -135,7 +136,7 @@ def _bloque_eda(ambito: str) -> html.Div:
     prueba_edad = prueba_edad_por_grado(ambito)
     p_edad = (
         "p < 0,0001" if prueba_edad["p_valor"] < 0.0001
-        else f"p = {prueba_edad['p_valor']:.4f}"
+        else f"p = {num(prueba_edad['p_valor'], 4)}"
     )
 
     return html.Div(

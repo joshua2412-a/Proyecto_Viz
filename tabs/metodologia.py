@@ -10,6 +10,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import html
 
+from utils.formato import pct
 from utils.components import (
     bullet_list,
     callout,
@@ -130,13 +131,13 @@ def _kpis() -> list[dict]:
         {
             "valor": f"{tamanos['train']}",
             "etiqueta": "Pacientes en entrenamiento",
-            "detalle": f"LGG {proporciones.loc['LGG', 'porcentaje']:.1f}% · "
-                       f"GBM {proporciones.loc['GBM', 'porcentaje']:.1f}%",
+            "detalle": f"LGG {pct(proporciones.loc['LGG', 'porcentaje'], 1)} · "
+                       f"GBM {pct(proporciones.loc['GBM', 'porcentaje'], 1)}",
         },
         {
             "valor": f"{tamanos['test']}",
             "etiqueta": "Pacientes en prueba",
-            "detalle": f"Reservados antes del EDA ({TEST_SIZE:.0%} del total)",
+            "detalle": f"Reservados antes del EDA ({pct(TEST_SIZE * 100, 0)} del total)",
         },
         {
             "valor": f"{len(asociacion)}",

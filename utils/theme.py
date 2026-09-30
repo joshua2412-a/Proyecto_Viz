@@ -125,6 +125,9 @@ FONT_MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace
 SOBRIO_TEMPLATE = go.layout.Template(
     layout=go.Layout(
         colorway=SERIES,
+        # Coma decimal y punto de millar: sin esto, los ejes y los tooltips
+        # escriben "42.0" mientras el texto de las pestañas escribe "42,0".
+        separators=",.",
         font=dict(family=FONT_FAMILY, size=13, color=INK_SOFT),
         title=dict(font=dict(size=15, color=INK), x=0, xanchor="left"),
         paper_bgcolor=BG_CARD,

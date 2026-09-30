@@ -15,6 +15,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import get_asset_url, html
 
+from utils.formato import num, pct
 from utils.components import (
     bullet_list,
     callout,
@@ -158,7 +159,7 @@ def _kpis() -> list[dict]:
             "color": ACCENT_NEUTRAL,
         },
         {
-            "valor": f"{proporciones.loc['GBM', 'porcentaje']:.1f}%",
+            "valor": f"{pct(proporciones.loc['GBM', 'porcentaje'], 1)}",
             "etiqueta": "Casos de GBM",
             "detalle": "El resto son gliomas de bajo grado (LGG)",
             "color": COLOR_GBM,
@@ -170,9 +171,9 @@ def _kpis() -> list[dict]:
             "color": ACCENT_NEUTRAL,
         },
         {
-            "valor": f"{idh1['LGG'] - idh1['GBM']:.0f} pp",
+            "valor": f"{num(idh1['LGG'] - idh1['GBM'], 0)} pp",
             "etiqueta": "Brecha de IDH1",
-            "detalle": f"Mutado en {idh1['LGG']:.1f}% de LGG frente a {idh1['GBM']:.1f}% de GBM",
+            "detalle": f"Mutado en {pct(idh1['LGG'], 1)} de LGG frente a {pct(idh1['GBM'], 1)} de GBM",
             # La franja parte los dos colores porque la cifra es la distancia
             # entre ellos, no una propiedad de uno solo.
             "color": f"linear-gradient(180deg, {COLOR_LGG} 0 50%, {COLOR_GBM} 50% 100%)",

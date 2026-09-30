@@ -9,6 +9,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import html
 
+from utils.formato import pct
 from utils.components import (
     callout,
     card,
@@ -98,7 +99,7 @@ def _tabla_representatividad() -> dbc.Table:
             [
                 fila["categoria"],
                 f"{int(fila['pacientes'])}",
-                f"{fila['pacientes'] / total * 100:.2f}%",
+                f"{pct(fila['pacientes'] / total * 100, 2)}",
             ]
             for _, fila in agregado.iterrows()
         ],

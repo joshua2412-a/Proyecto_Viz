@@ -113,6 +113,24 @@ LABELS = {
 }
 LABELS.update({gen: f"Mutación en {gen}" for gen in GENE_FEATURES})
 
+# Descripción breve de las tres variables clínicas. Las de los genes están en
+# GENE_DESCRIPCION, más abajo. Ambas alimentan la ficha de variable que muestra
+# la pestaña Exploración junto al selector.
+CLINICA_DESCRIPCION = {
+    "Age_at_diagnosis": "Edad del paciente en el momento del diagnóstico. Lleva "
+                        "decimales porque recoge los días exactos, no solo el año.",
+    "Gender": "Sexo registrado del paciente en la historia clínica de TCGA.",
+    "Race": "Grupo racial reportado, en las cuatro categorías que usa TCGA. La "
+            "cohorte está muy desbalanceada hacia el grupo White.",
+}
+
+# Papel de cada variable en el análisis, para la misma ficha.
+VARIABLE_PAPEL = {
+    "Age_at_diagnosis": "Predictora clínica · se contrasta con la U de Mann-Whitney",
+    "Gender": "Predictora clínica · chi-cuadrado y V de Cramér",
+    "Race": "Predictora clínica · chi-cuadrado (categorías muy desbalanceadas)",
+}
+
 # Función biológica de cada gen (resumida del marco teórico del libro).
 # Se usa en los tooltips del formulario y en la pestaña de marco teórico.
 GENE_DESCRIPCION = {
