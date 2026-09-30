@@ -14,6 +14,7 @@ import dash_bootstrap_components as dbc
 from dash import html
 
 from utils.components import (
+    badge_numero,
     bullet_list,
     callout,
     card,
@@ -67,7 +68,8 @@ def layout() -> html.Div:
                     dbc.Col(
                         card(
                             [
-                                html.Div(html.I(className=f"bi {icono}"), className="guide-icon"),
+                                html.Div(badge_numero(html.I(className=f"bi {icono}")),
+                                         className="guide-badge"),
                                 html.Div(titulo, className="guide-name"),
                                 html.Div(descripcion, className="guide-text"),
                                 html.Div(

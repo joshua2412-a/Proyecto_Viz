@@ -41,7 +41,7 @@ from utils.figures import (
     fig_matriz_genes,
     fig_prevalencia_genes,
 )
-from utils.theme import COLOR_LGG, SERIES
+from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 ID_AMBITO = "res-ambito"
 ID_EDA = "res-eda"
@@ -65,6 +65,7 @@ def _kpis() -> list[dict]:
         {
             "valor": f"{num(edad.loc['GBM', 'media'] - edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Diferencia de edad",
+            "color": f"linear-gradient(180deg, {COLOR_LGG} 0 50%, {COLOR_GBM} 50% 100%)",
             "detalle": f"GBM {num(edad.loc['GBM', 'media'], 1)} frente a LGG "
                        f"{num(edad.loc['LGG', 'media'], 1)}",
         },
@@ -72,6 +73,7 @@ def _kpis() -> list[dict]:
             "valor": f"{pct(idh1['LGG'], 0)} vs {pct(idh1['GBM'], 0)}",
             "etiqueta": "IDH1 mutado: LGG vs GBM",
             "detalle": "Prevalencia de la mutación en cada grado",
+            "color": f"linear-gradient(180deg, {COLOR_LGG} 0 50%, {COLOR_GBM} 50% 100%)",
         },
         {
             "valor": f"{int(asociacion['significativa'].sum())} de {len(asociacion)}",

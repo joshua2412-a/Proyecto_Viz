@@ -72,11 +72,13 @@ def _kpis() -> list[dict]:
             "valor": f"{num(idh1, 2, signo=True)}",
             "etiqueta": "Spearman de IDH1",
             "detalle": "El marcador más discriminante, y de signo protector",
+            "color": COLOR_LGG,  # signo negativo: empuja hacia LGG
         },
         {
             "valor": f"{num(edad.loc['GBM', 'media'] - edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Brecha de edad",
             "detalle": "Entre el diagnóstico de GBM y el de LGG",
+            "color": f"linear-gradient(180deg, {COLOR_LGG} 0 50%, {COLOR_GBM} 50% 100%)",
         },
         {
             "valor": f"{significativas} de {len(asociacion)}",

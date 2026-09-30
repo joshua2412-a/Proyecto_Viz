@@ -594,6 +594,13 @@ body {
   color: var(--accent);
 }
 
+/* Objetivos, Metodologia y Documentacion enumeran sus fichas. El numero pasa
+   de ser texto suelto a un distintivo: da el color que faltaba en esas
+   pestanas y deja claro que las fichas van en orden. */
+.guide-badge {
+  margin-bottom: 13px;
+}
+
 .guide-name {
   font-size: 0.93rem;
   font-weight: 600;

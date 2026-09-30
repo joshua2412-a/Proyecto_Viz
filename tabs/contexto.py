@@ -44,15 +44,20 @@ def _kpis() -> list[dict]:
             "valor": f"{num(edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Edad media en LGG",
             "detalle": f"± {num(edad.loc['LGG', 'desviacion'], 1)} · {int(edad.loc['LGG', 'pacientes'])} pacientes",
+            "color": COLOR_LGG,
         },
         {
             "valor": f"{num(edad.loc['GBM', 'media'], 1)} años",
             "etiqueta": "Edad media en GBM",
             "detalle": f"± {num(edad.loc['GBM', 'desviacion'], 1)} · {int(edad.loc['GBM', 'pacientes'])} pacientes",
+            "color": COLOR_GBM,
         },
         {
             "valor": f"{num(edad.loc['GBM', 'media'] - edad.loc['LGG', 'media'], 1)} años",
             "etiqueta": "Diferencia de edad",
+            # La cifra es la distancia entre los dos grados, no una propiedad
+            # de uno solo: la franja parte los dos colores.
+            "color": f"linear-gradient(180deg, {COLOR_LGG} 0 50%, {COLOR_GBM} 50% 100%)",
             "detalle": "Mann-Whitney p < 0,0001" if prueba["p_valor"] < 0.0001
             else f"Mann-Whitney p = {num(prueba['p_valor'], 4)}",
         },

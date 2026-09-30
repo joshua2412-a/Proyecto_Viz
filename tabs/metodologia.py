@@ -12,6 +12,7 @@ from dash import html
 
 from utils.formato import pct
 from utils.components import (
+    badge_numero,
     bullet_list,
     callout,
     card,
@@ -201,7 +202,7 @@ def layout() -> html.Div:
                     dbc.Col(
                         card(
                             [
-                                html.Div(numero, className="guide-icon"),
+                                html.Div(badge_numero(numero), className="guide-badge"),
                                 html.Div(titulo, className="guide-name"),
                                 html.Div(descripcion, className="guide-text"),
                             ],
