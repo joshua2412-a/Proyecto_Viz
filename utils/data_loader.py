@@ -320,6 +320,22 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+def matriz_spearman(ambito: str = "train") -> pd.DataFrame:
+    """Matriz de correlación de Spearman entre el grado y las predictoras.
+
+    Reproduce la del notebook: `Grade` más las 22 predictoras con orden, es
+    decir todas menos `Race`, que queda fuera porque es nominal y correlacionar
+    cuatro categorías sin orden no significa nada
+    (`cols_spearman = [c for c in train_data.columns if c != 'Race']`).
+
+    El orden de filas y columnas es el del dataset, igual que en el libro, para
+    que las dos matrices se puedan poner una al lado de la otra. La primera
+    fila es la correlación de cada variable con el grado.
+    """
+    columnas = [TARGET, *NUMERIC_FEATURES, "Gender", *GENE_FEATURES]
+    return get_dataframe(ambito)[columnas].corr(method="spearman")
+
+
 def vif_predictoras(ambito: str = "train") -> pd.DataFrame:
     """Factor de inflación de la varianza de cada predictora.
 
@@ -971,6 +987,37 @@ def lectura_asociacion(ambito: str = "train") -> list[str]:
         f"{int(asociacion['significativa_bonferroni'].sum())} de las "
         f"{len(con_senal)}; las que caen son las que rozaban el umbral, no las "
         "asociaciones fuertes.",
+    ]
+
+
+def lectura_correlaciones(ambito: str = "train") -> list[str]:
+    """Qué enseña la matriz de Spearman completa."""
+    matriz = matriz_spearman(ambito)
+    con_grado = matriz[TARGET].drop(TARGET)
+    mas_fuerte = con_grado.abs().idxmax()
+
+    entre = matriz.drop(index=TARGET, columns=TARGET).to_numpy(copy=True)
+    np.fill_diagonal(entre, 0.0)
+    par = np.unravel_index(np.argmax(np.abs(entre)), entre.shape)
+    nombres = list(matriz.drop(index=TARGET, columns=TARGET).columns)
+    debiles = int((np.abs(entre[np.triu_indices_from(entre, k=1)]) < 0.20).sum())
+    total_pares = len(np.triu_indices_from(entre, k=1)[0])
+
+    return [
+        f"La primera fila y la primera columna son lo que importa para el "
+        f"objetivo: la correlación de cada variable con el grado. La mayor es "
+        f"{mas_fuerte} con r = {num(con_grado[mas_fuerte], 2, signo=True)}.",
+
+        f"Entre predictoras, la correlación más alta es "
+        f"{nombres[par[0]]} con {nombres[par[1]]} "
+        f"(r = {num(entre[par], 2, signo=True)}), y "
+        f"{debiles} de los {total_pares} pares se quedan por debajo de 0,20 en "
+        "valor absoluto. El panel es mayoritariamente de variables que aportan "
+        "información distinta.",
+
+        "El grupo racial no está en la matriz: es nominal, y correlacionar "
+        "cuatro categorías sin orden no significa nada. El libro la excluye "
+        "por lo mismo.",
     ]
 
 

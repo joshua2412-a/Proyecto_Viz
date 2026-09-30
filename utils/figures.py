@@ -33,6 +33,7 @@ from utils.data_loader import (
     estadisticas_edad,
     get_dataframe,
     matriz_asociacion_genes,
+    matriz_spearman,
     nombre_variable,
     prevalencia_genes,
     proporcion_grado,
@@ -41,6 +42,7 @@ from utils.data_loader import (
 )
 from utils.theme import (
     AXIS,
+    DIV_BLUE_CORAL,
     BG_CARD,
     COLOR_GBM,
     COLOR_GRADE_MAP,
@@ -544,3 +546,58 @@ def fig_bivariada(variable: str, ambito: str = "train") -> go.Figure:
     )
     altura = max(260, 118 + 52 * len(orden))
     return apply_theme(_redondear_barras(fig, 3), height=altura)
+
+
+def fig_matriz_spearman(ambito: str = "train") -> go.Figure:
+    """Matriz de Spearman del grado y las 22 predictoras con orden.
+
+    Triángulo inferior y sin números en las casillas, como la del libro: con
+    529 celdas, anotarlas todas convierte la figura en una hoja de cálculo y
+    se pierde justamente lo que un mapa de calor hace bien, que es enseñar el
+    patrón de un vistazo. Los valores concretos están en la tabla de
+    asociación y en el detalle de cada variable.
+
+    La escala es divergente con gris en el cero porque el signo importa: azul
+    hacia LGG, coral hacia GBM, y el punto medio neutro para que la ausencia
+    de correlación no parezca un valor más.
+    """
+    matriz = matriz_spearman(ambito)
+    etiquetas = list(matriz.columns)
+
+    # Se oculta el triángulo superior: es el reflejo del inferior y duplicarlo
+    # solo añade ruido.
+    valores = matriz.to_numpy(copy=True).astype(float)
+    valores[np.triu_indices_from(valores, k=1)] = np.nan
+
+    fig = go.Figure(
+        go.Heatmap(
+            z=valores,
+            x=etiquetas,
+            y=etiquetas,
+            colorscale=DIV_BLUE_CORAL,
+            zmid=0,
+            zmin=-1,
+            zmax=1,
+            xgap=1,
+            ygap=1,
+            hovertemplate="<b>%{y}</b> y <b>%{x}</b><br>r = %{z:.2f}<extra></extra>",
+            colorbar=dict(
+                title=dict(text="r", side="top", font=dict(size=11, color=INK_SOFT)),
+                thickness=11,
+                len=0.8,
+                tickfont=dict(size=10, color=INK_SOFT),
+                outlinewidth=0,
+            ),
+        )
+    )
+    # Sin anclar la escala de los ejes: forzar celdas cuadradas dejaba media
+    # tarjeta vacía a los lados y encogía las etiquetas hasta lo ilegible. En
+    # una matriz de correlación la proporción de la celda no codifica nada.
+    fig.update_layout(
+        xaxis=dict(showgrid=False, tickangle=-55, tickfont=dict(size=10), ticks=""),
+        yaxis=dict(showgrid=False, autorange="reversed", tickfont=dict(size=10),
+                   ticks=""),
+        margin=dict(l=4, r=4, t=10, b=4),
+        plot_bgcolor=BG_CARD,
+    )
+    return apply_theme(fig, height=620)

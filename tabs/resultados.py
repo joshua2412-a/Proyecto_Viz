@@ -31,6 +31,7 @@ from utils.data_loader import (
     lectura_asociacion,
     lectura_clinicas,
     lectura_cohorte,
+    lectura_correlaciones,
     lectura_genes,
     lectura_multicolinealidad,
     estadisticas_edad,
@@ -47,6 +48,7 @@ from utils.figures import (
     fig_distribucion_grado,
     fig_edad_por_grado,
     fig_matriz_genes,
+    fig_matriz_spearman,
     fig_prevalencia_genes,
 )
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
@@ -293,6 +295,30 @@ def _bloque_eda(ambito: str) -> html.Div:
                           "|ρ|, más el grupo racial, que es nominal y va por V de "
                           "Cramér",
                 className="mb-4",
+            ),
+            section_title("Correlación entre todas las variables"),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        graph_card(
+                            fig_matriz_spearman(ambito),
+                            "Matriz de Spearman del grado y las 22 predictoras con orden",
+                            "Solo el triángulo inferior: el superior es su reflejo. El "
+                            "grupo racial queda fuera por ser nominal, igual que en el "
+                            "libro.",
+                        ),
+                        lg=8,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        lectura_guiada(
+                            lectura_correlaciones(ambito),
+                            titulo="Lectura · el mapa completo",
+                        ),
+                        lg=4,
+                        className="mb-4",
+                    ),
+                ]
             ),
             section_title("Multicolinealidad entre mutaciones"),
             dbc.Row(
