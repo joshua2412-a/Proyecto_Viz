@@ -138,19 +138,26 @@ def fig_edad_por_grado(ambito: str = "train", nbins: int = 28) -> go.Figure:
         xaxis_title=LABELS["Age_at_diagnosis"],
         yaxis_title="% dentro de cada grado",
         legend_title_text="",
+        # La leyenda sube una fila para dejar sitio a las dos medianas.
+        legend=dict(y=1.16, yanchor="bottom"),
+        margin=dict(l=56, r=20, t=84, b=48),
     )
 
-    # Medianas por grupo: refuerzan la lectura sin depender del color
+    # Medianas por grupo: refuerzan la lectura sin depender del color. La
+    # etiqueta va por encima del área de trazado, no dentro: con dos líneas y
+    # un histograma detrás, ahí abajo no se leen.
     for grado, color in (("LGG", COLOR_LGG), ("GBM", COLOR_GBM)):
-        mediana = df.loc[df["grade_label"] == grado, "Age_at_diagnosis"].median()
-        fig.add_vline(
-            x=mediana,
-            line_dash="dot",
-            line_color=color,
-            line_width=2,
-            annotation_text=f"mediana {grado}: {num(mediana)}",
-            annotation_position="top",
-            annotation_font=dict(size=11, color=color),
+        mediana = float(df.loc[df["grade_label"] == grado, "Age_at_diagnosis"].median())
+        fig.add_shape(
+            type="line",
+            x0=mediana, x1=mediana, y0=0, y1=1, yref="paper",
+            line=dict(color=color, width=2, dash="dot"),
+        )
+        fig.add_annotation(
+            x=mediana, y=1, yref="paper", yanchor="bottom", yshift=5,
+            text=f"mediana {grado}: {num(mediana)}",
+            showarrow=False,
+            font=dict(size=11, color=color),
         )
     return apply_theme(fig, height=400)
 
@@ -174,17 +181,21 @@ def fig_boxplot_edad(ambito: str = "train") -> go.Figure:
         hovertemplate="%{y:.1f} años<extra>%{x}</extra>",
     )
 
-    # Etiqueta directa con la media de cada grupo
+    # Etiqueta directa con la media de cada grupo, anclada al borde superior
+    # del área de trazado: colgada del máximo se salía por arriba cuando el
+    # valor más alto quedaba cerca del techo del eje.
     for grado in ORDEN_GRADE:
         if grado not in resumen.index:
             continue
         fila = resumen.loc[grado]
         fig.add_annotation(
             x=grado,
-            y=float(fila["maximo"]),
+            y=1,
+            yref="paper",
+            yanchor="bottom",
+            yshift=5,
             text=f"media {num(fila['media'])} ± {num(fila['desviacion'])}",
             showarrow=False,
-            yshift=18,
             font=dict(size=11, color=INK_SOFT),
         )
 
@@ -192,6 +203,7 @@ def fig_boxplot_edad(ambito: str = "train") -> go.Figure:
         xaxis_title=None,
         yaxis_title=LABELS["Age_at_diagnosis"],
         showlegend=False,
+        margin=dict(l=56, r=20, t=46, b=48),
     )
     return apply_theme(fig, height=400)
 
@@ -415,17 +427,23 @@ def fig_univariada(variable: str, ambito: str = "train") -> go.Figure:
             )
         )
         # La mediana marcada: da el centro sin que la arrastren los extremos
-        fig.add_vline(
-            x=float(serie.median()),
+        mediana = float(serie.median())
+        fig.add_shape(
+            type="line",
+            x0=mediana, x1=mediana, y0=0, y1=1, yref="paper",
             line=dict(color=INK_SOFT, width=1.2, dash="dash"),
-            annotation_text=f"mediana {num(serie.median(), 0)}",
-            annotation_position="top",
-            annotation_font=dict(size=11, color=INK_SOFT),
+        )
+        fig.add_annotation(
+            x=mediana, y=1, yref="paper", yanchor="bottom", yshift=5,
+            text=f"mediana {num(mediana, 0)}",
+            showarrow=False,
+            font=dict(size=11, color=INK_SOFT),
         )
         fig.update_layout(
             xaxis_title=LABELS.get(variable, nombre),
             yaxis_title="Pacientes",
             bargap=0.04,
+            margin=dict(l=56, r=20, t=40, b=48),
         )
         return apply_theme(_redondear_barras(fig, 3), height=330, showlegend=False)
 
@@ -526,12 +544,25 @@ def fig_bivariada(variable: str, ambito: str = "train") -> go.Figure:
     gbm_cohorte = float(
         (get_dataframe(ambito)["grade_label"] == "GBM").mean() * 100
     )
-    fig.add_vline(
-        x=100 - gbm_cohorte,
+    corte = 100 - gbm_cohorte
+
+    # La línea de referencia se dibuja como forma y su etiqueta como anotación
+    # aparte, con yref="paper": así el texto queda POR ENCIMA del área de
+    # trazado. Con add_vline la etiqueta cae dentro y se lee sobre las barras,
+    # que es justo donde no se lee.
+    fig.add_shape(
+        type="line",
+        x0=corte, x1=corte, y0=0, y1=1, yref="paper",
         line=dict(color=INK_SOFT, width=1.2, dash="dot"),
-        annotation_text=f"GBM en la cohorte: {pct(gbm_cohorte, 0)}",
-        annotation_position="top left",
-        annotation_font=dict(size=11, color=INK_SOFT),
+    )
+    # Cerca de un borde, el texto centrado se saldría: se ancla hacia dentro.
+    anclaje = "left" if corte < 22 else ("right" if corte > 78 else "center")
+    fig.add_annotation(
+        x=corte, y=1, yref="paper", yanchor="bottom", yshift=5,
+        xanchor=anclaje,
+        text=f"GBM en la cohorte: {pct(gbm_cohorte, 0)}",
+        showarrow=False,
+        font=dict(size=11, color=INK_SOFT),
     )
 
     fig.update_layout(
@@ -539,10 +570,12 @@ def fig_bivariada(variable: str, ambito: str = "train") -> go.Figure:
         # Plotly invierte la leyenda de las barras apiladas por defecto, y
         # entonces no coincide con el orden en que se ven los colores.
         legend_traceorder="normal",
+        # La leyenda sube una fila para dejar sitio a la etiqueta de la línea.
+        legend=dict(y=1.14, yanchor="bottom"),
         xaxis=dict(title="% dentro de la categoría", range=[0, 100],
                    showgrid=True, gridcolor=GRID, ticksuffix=" %"),
         yaxis_title="",
-        margin=dict(l=8, r=20, t=52, b=44),
+        margin=dict(l=8, r=20, t=86, b=44),
     )
     altura = max(260, 118 + 52 * len(orden))
     return apply_theme(_redondear_barras(fig, 3), height=altura)
