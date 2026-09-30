@@ -32,11 +32,13 @@ from utils.data_loader import (
     lectura_clinicas,
     lectura_cohorte,
     lectura_genes,
+    lectura_multicolinealidad,
     estadisticas_edad,
     prevalencia_genes,
     proporcion_grado,
     prueba_edad_por_grado,
     tamanos_particion,
+    vif_predictoras,
 )
 from utils.figures import (
     fig_asociacion_grado,
@@ -138,11 +140,13 @@ def _tabla_asociacion(ambito: str) -> dbc.Table:
                 f"{num(fila['rho'], 3, signo=True)}",
                 v_cramer,
                 p_valor,
+                "Sí" if fila["significativa_bonferroni"] else "No",
                 "—" if np.isnan(fila["rho"]) else ("LGG" if fila["rho"] < 0 else "GBM"),
             ]
         )
     return data_table(
-        ["Variable", "Prueba", "Spearman r", "V de Cramér", "p-valor", "Empuja hacia"],
+        ["Variable", "Prueba", "Spearman r", "V de Cramér", "p-valor",
+         "Aguanta Bonferroni", "Empuja hacia"],
         filas,
     )
 
@@ -308,7 +312,9 @@ def _bloque_eda(ambito: str) -> html.Div:
                                 paragraph(
                                     "La matriz responde a una pregunta concreta: ¿hay pares "
                                     "de mutaciones tan redundantes que no convenga meterlas "
-                                    "juntas en un modelo lineal?"
+                                    "juntas en un modelo lineal? Solo a esa: la "
+                                    "multicolinealidad completa se mide más abajo, con el "
+                                    "factor de inflación de la varianza."
                                 ),
                                 bullet_list(
                                     [
@@ -324,12 +330,13 @@ def _bloque_eda(ambito: str) -> html.Div:
                                     ],
                                 ),
                                 callout(
-                                    "Ningún par supera el umbral crítico de redundancia "
-                                    "(V > 0,70), así que no hay multicolinealidad "
-                                    "estructural: el subconjunto de marcadores puede "
-                                    "retenerse completo sin inestabilidad en la estimación "
-                                    "de los coeficientes.",
-                                    titulo="Conclusión del diagnóstico",
+                                    "Ningún par supera el umbral de redundancia "
+                                    "(V > 0,70). Eso descarta la redundancia por parejas, "
+                                    "que no es lo mismo que descartar la "
+                                    "multicolinealidad: una variable puede ser casi "
+                                    "predecible a partir de varias a la vez sin parecerse "
+                                    "a ninguna por separado.",
+                                    titulo="Qué descarta esto, y qué no",
                                 ),
                             ],
                             titulo="Cómo se lee la matriz",
@@ -340,7 +347,52 @@ def _bloque_eda(ambito: str) -> html.Div:
                     ),
                 ]
             ),
+            section_title("Multicolinealidad completa: factor de inflación de la varianza"),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        card(
+                            _tabla_vif(ambito),
+                            titulo="Las cinco predictoras con más VIF",
+                            subtitulo="VIF = 1 / (1 − R²) de regresar cada predictora "
+                                      "contra las otras 22",
+                        ),
+                        lg=7,
+                        className="mb-4",
+                    ),
+                    dbc.Col(
+                        lectura_guiada(
+                            lectura_multicolinealidad(ambito),
+                            titulo="Lectura · se pisan o no las predictoras",
+                        ),
+                        lg=5,
+                        className="mb-4",
+                    ),
+                ]
+            ),
         ]
+    )
+
+
+def _tabla_vif(ambito: str) -> dbc.Table:
+    """Las predictoras con mayor inflación de varianza.
+
+    Se enseñan solo las cinco primeras: si la peor está holgada, las demás
+    también, y una tabla de 23 filas para decir «no hay problema» sobra.
+    """
+    datos = vif_predictoras(ambito).head(5)
+    return data_table(
+        ["Predictora", "R² contra las demás", "VIF", "Lectura"],
+        [
+            [
+                fila["variable"],
+                num(fila["r2"], 3),
+                num(fila["vif"], 2),
+                "Sin problema" if fila["vif"] < 5
+                else ("Conviene mirarlo" if fila["vif"] < 10 else "Inestable"),
+            ]
+            for _, fila in datos.iterrows()
+        ],
     )
 
 

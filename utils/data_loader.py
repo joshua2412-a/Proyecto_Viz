@@ -262,12 +262,18 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
 
     for variable in [*NUMERIC_FEATURES, *CATEGORICAL_FEATURES, *GENE_FEATURES]:
         nominal = variable == "Race"
-        rho_bruto, p_spearman = stats.spearmanr(df[variable], df[TARGET])
+        rho_bruto, _ = stats.spearmanr(df[variable], df[TARGET])
         rho = float("nan") if nominal else float(rho_bruto)
 
         if variable in NUMERIC_FEATURES:
-            v_cramer, p_variable = float("nan"), float(p_spearman)
-            prueba = "Spearman"
+            # La misma prueba que usa el libro y que reporta prueba_bivariada:
+            # antes aquí salía el p-valor de Spearman y la misma variable
+            # aparecía contrastada de dos formas distintas según la pestaña.
+            lgg = df.loc[df[TARGET] == 0, variable]
+            gbm = df.loc[df[TARGET] == 1, variable]
+            _, p_variable = stats.mannwhitneyu(lgg, gbm, alternative="two-sided")
+            v_cramer = float("nan")
+            prueba = "U de Mann-Whitney"
             tipo = "Clínica numérica"
         else:
             tabla = pd.crosstab(serie_para_prueba(variable, ambito), df[TARGET])
@@ -296,11 +302,68 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
             }
         )
 
+    tabla = pd.DataFrame(filas)
+
+    # Corrección de Bonferroni. Se contrastan todas las predictoras contra el
+    # mismo objetivo, así que con 23 pruebas a alfa = 0,05 cabe esperar algo
+    # más de un falso positivo solo por azar. El umbral corregido reparte el
+    # alfa entre los contrastes; es conservador, y por eso se muestra al lado
+    # del veredicto normal en vez de sustituirlo.
+    tabla["alfa_bonferroni"] = ALFA / len(tabla)
+    tabla["significativa_bonferroni"] = (
+        tabla["p_valor"] < tabla["alfa_bonferroni"]
+    ) & (tabla["magnitud"] >= EFECTO_MINIMO)
+
     # Las nominales no tienen |ρ| con el que ordenarse, así que van al final.
+    return tabla.sort_values(
+        "rho", key=np.abs, ascending=False, na_position="last"
+    ).reset_index(drop=True)
+
+
+def vif_predictoras(ambito: str = "train") -> pd.DataFrame:
+    """Factor de inflación de la varianza de cada predictora.
+
+    La matriz de V de Cramér solo mira pares, y la multicolinealidad no es un
+    fenómeno por pares: una variable puede ser casi predecible a partir de una
+    combinación de otras sin parecerse a ninguna por separado. El VIF sí
+    responde a esa pregunta, porque regresa cada predictora contra todas las
+    demás y mide cuánto se infla la varianza de su coeficiente:
+
+        VIF = 1 / (1 - R²)
+
+    Lectura habitual: por debajo de 5 no hay problema, entre 5 y 10 conviene
+    mirarlo, y por encima de 10 la estimación de los coeficientes se vuelve
+    inestable.
+
+    `Race` entra reagrupada en dos categorías, igual que en las pruebas: con
+    los cuatro niveles, la categoría de un solo paciente deja una columna casi
+    constante y el VIF se dispara por aritmética, no por redundancia real.
+    """
+    df = get_dataframe(ambito)
+
+    columnas = {
+        "Age_at_diagnosis": df["Age_at_diagnosis"].astype(float),
+        "Gender": df["Gender"].astype(float),
+        "Race": (df["Race"] != 0).astype(float),
+    }
+    for gen in GENE_FEATURES:
+        columnas[gen] = df[gen].astype(float)
+    matriz = pd.DataFrame(columnas)
+
+    filas = []
+    for nombre in matriz.columns:
+        objetivo = matriz[nombre].to_numpy()
+        resto = matriz.drop(columns=[nombre]).to_numpy()
+        diseno = np.column_stack([np.ones(len(resto)), resto])
+        coeficientes, *_ = np.linalg.lstsq(diseno, objetivo, rcond=None)
+        residuos = objetivo - diseno @ coeficientes
+        suma_total = float(((objetivo - objetivo.mean()) ** 2).sum())
+        r2 = 1.0 - float((residuos ** 2).sum()) / suma_total if suma_total > 0 else 0.0
+        r2 = min(max(r2, 0.0), 1 - 1e-9)
+        filas.append({"variable": nombre, "r2": r2, "vif": 1.0 / (1.0 - r2)})
+
     return (
-        pd.DataFrame(filas)
-        .sort_values("rho", key=np.abs, ascending=False, na_position="last")
-        .reset_index(drop=True)
+        pd.DataFrame(filas).sort_values("vif", ascending=False).reset_index(drop=True)
     )
 
 
@@ -873,7 +936,13 @@ def lectura_asociacion(ambito: str = "train") -> list[str]:
     con_senal = asociacion[asociacion["significativa"]]
     sin_senal = asociacion[~asociacion["significativa"]]
     primera = asociacion.iloc[0]
-    hacia_lgg = int((con_senal["rho"] < 0).sum())
+
+    # Las nominales no entran en el reparto por dirección: no tienen signo, y
+    # meterlas en un lado o en otro seria inventárselo.
+    con_signo = con_senal[con_senal["rho"].notna()]
+    hacia_lgg = int((con_signo["rho"] < 0).sum())
+    hacia_gbm = len(con_signo) - hacia_lgg
+    sin_direccion = len(con_senal) - len(con_signo)
 
     return [
         f"{primera['variable']} encabeza el ranking con ρ = "
@@ -882,14 +951,60 @@ def lectura_asociacion(ambito: str = "train") -> list[str]:
            if primera["rho"] < 0 else "positivo, así que empuja hacia GBM."),
 
         f"{len(con_senal)} de las {len(asociacion)} predictoras superan a la vez "
-        f"los dos filtros del proyecto (p < {num(ALFA, 2)} y "
-        f"|ρ| ≥ {num(EFECTO_MINIMO, 2)}): {hacia_lgg} empujan hacia LGG y "
-        f"{len(con_senal) - hacia_lgg} hacia GBM.",
+        f"los dos filtros del proyecto (p < {num(ALFA, 2)} y magnitud ≥ "
+        f"{num(EFECTO_MINIMO, 2)}): {hacia_lgg} empujan hacia LGG y {hacia_gbm} "
+        "hacia GBM"
+        + (f", y {sin_direccion} no tiene dirección por ser nominal."
+           if sin_direccion == 1
+           else f", y {sin_direccion} no tienen dirección por ser nominales."
+           if sin_direccion else "."),
 
-        f"Las {len(sin_senal)} restantes son las primeras candidatas a salir del "
-        "panel. Esa es la respuesta a la pregunta del proyecto: qué merece la "
-        "pena medir cuando secuenciarlo todo sale caro.",
+        f"Las {len(sin_senal)} restantes no muestran asociación apreciable por sí "
+        "solas, así que son las primeras candidatas a salir del panel. Con una "
+        "salvedad: esto es un cribado variable a variable, y una que aquí parece "
+        "muda puede aportar acompañada de otras. Quién sobra de verdad lo decide "
+        "un modelo, no esta tabla.",
+
+        f"Con {len(asociacion)} contrastes contra el mismo objetivo, algo de "
+        "significancia aparece por azar. Bajo la corrección de Bonferroni "
+        f"(umbral {num(ALFA / len(asociacion), 5)}) sobreviven "
+        f"{int(asociacion['significativa_bonferroni'].sum())} de las "
+        f"{len(con_senal)}; las que caen son las que rozaban el umbral, no las "
+        "asociaciones fuertes.",
     ]
+
+
+def lectura_multicolinealidad(ambito: str = "train") -> list[str]:
+    """Si las predictoras se pisan entre sí, más allá de los pares."""
+    vif = vif_predictoras(ambito)
+    pares = matriz_asociacion_genes(ambito, top_n=12).values.copy()
+    np.fill_diagonal(pares, 0.0)
+    peor = vif.iloc[0]
+    sobre_cinco = int((vif["vif"] >= 5).sum())
+
+    lineas = [
+        f"Entre pares, la asociación más fuerte llega a V = {num(pares.max(), 2)}, "
+        "por debajo del umbral de 0,70 que se suele tomar como redundancia.",
+
+        "Pero los pares no bastan: una variable puede ser casi predecible a "
+        "partir de una combinación de varias sin parecerse a ninguna. Eso lo "
+        "mide el factor de inflación de la varianza, que regresa cada "
+        "predictora contra todas las demás.",
+    ]
+
+    if sobre_cinco == 0:
+        lineas.append(
+            f"El VIF más alto es {num(peor['vif'], 2)}, en {peor['variable']}, muy "
+            "por debajo de 5. Las 23 predictoras pueden entrar juntas en un modelo "
+            "sin que sus coeficientes se vuelvan inestables."
+        )
+    else:
+        lineas.append(
+            f"{sobre_cinco} predictoras superan un VIF de 5, la más alta "
+            f"{peor['variable']} con {num(peor['vif'], 2)}: ahí sí conviene mirar "
+            "antes de meterlas todas juntas en un modelo lineal."
+        )
+    return lineas
 
 
 # --------------------------------------------------------------------------- #

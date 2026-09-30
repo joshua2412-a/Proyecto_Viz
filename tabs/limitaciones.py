@@ -75,11 +75,12 @@ LIMITACIONES = [
         "sobre datos históricos.",
     ),
     (
-        "Contrastes múltiples sin corrección",
-        "Se contrastan 23 variables contra el grado por separado. Con ese número de "
-        "pruebas, alguna significancia puede aparecer por azar; no se aplicó una "
-        "corrección tipo Bonferroni. Las asociaciones fuertes no se ven afectadas, "
-        "pero las que rozan el umbral conviene tomarlas con cautela.",
+        "Contrastes múltiples: cuáles no aguantan la corrección",
+        "Se contrastan 23 variables contra el grado por separado, así que alguna "
+        "significancia aparece por azar. El criterio principal del tablero no "
+        "corrige por ello, pero la tabla de Resultados marca cuáles sobreviven a "
+        "la corrección de Bonferroni, que es conservadora. Las asociaciones "
+        "fuertes no se mueven; las que rozaban el umbral, sí.",
     ),
 ]
 

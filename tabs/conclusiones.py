@@ -27,6 +27,7 @@ from utils.data_loader import (
     asociacion_con_grado,
     estadisticas_edad,
     matriz_asociacion_genes,
+    vif_predictoras,
     prevalencia_genes,
     tamanos_particion,
 )
@@ -101,6 +102,7 @@ def _tabla_hallazgos() -> dbc.Table:
 
     idh1 = prevalencia.loc["IDH1"]
     no_significativas = asociacion[~asociacion["significativa"]]
+    vif = vif_predictoras("train")
 
     return data_table(
         ["Hallazgo", "Evidencia", "Consecuencia"],
@@ -128,9 +130,12 @@ def _tabla_hallazgos() -> dbc.Table:
             ],
             [
                 "No hay multicolinealidad estructural",
-                "Ningún par de variables con V de Cramér > 0,70",
-                "Los marcadores retenidos pueden entrar juntos en un modelo sin "
-                "inestabilizar la estimación de sus parámetros.",
+                f"Ningún par con V de Cramér > 0,70, y el factor de inflación de la "
+                f"varianza más alto es {num(vif.iloc[0]['vif'], 2)} "
+                f"({vif.iloc[0]['variable']}), lejos del umbral de 5",
+                "El VIF es lo que lo sostiene: mira cada predictora contra todas "
+                "las demás a la vez, no solo por parejas. Los marcadores pueden "
+                "entrar juntos en un modelo sin inestabilizar sus coeficientes.",
             ],
             [
                 "El grupo racial no es interpretable aquí",
