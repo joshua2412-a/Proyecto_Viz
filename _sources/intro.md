@@ -39,10 +39,9 @@ Este proyecto aborda este desafío analítico y médico mediante la integración
 **Dashboard interactivo**
 
 El análisis de este libro tiene una contraparte interactiva: un tablero en Dash
-que replica el EDA con gráficos navegables e incorpora un simulador que estima
-la probabilidad de GBM a partir de la edad, el género, el grupo racial y las 20
-mutaciones del panel. Está desplegado en Google Cloud Run:
-[panel de visualización y predicción](https://gliomas-dashboard-984926604434.us-central1.run.app).
+que recorre el planteamiento del problema, el marco teórico, la metodología y los
+resultados del EDA con gráficos navegables. Está desplegado en Google Cloud Run:
+[panel de visualización de datos](https://gliomas-dashboard-984926604434.us-central1.run.app).
 
 La fuente de este libro y el código del dashboard viven en el mismo proyecto:
 los notebooks en `jbook/`, la aplicación en la raíz, y una sola copia del
