@@ -287,6 +287,325 @@ body {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Índice desplegable (sustituye a las pestañas fuera de la portada)          */
+/* -------------------------------------------------------------------------- */
+.indice-barra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* La fila de pestañas mide 49 px: el índice tiene que medir lo mismo para
+     que el cambio entre una y otra no empuje el contenido hacia abajo. */
+  padding: 5px 0;
+}
+
+/* Ancho fijo a propósito. Con el ancho del contenido, el botón medía entre
+   187 px ("Problema") y 233 ("Documentación"), y al cambiar de sección movía
+   el origen de la barra de progreso: el relleno podía quedar más a la
+   izquierda que en la sección anterior aunque hubieras avanzado. 240 px caben
+   todas las etiquetas y dejan la barra siempre en el mismo sitio. */
+.indice {
+  flex: 0 0 240px;
+  min-width: 0;
+}
+
+.indice-boton {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  padding: 7px 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease;
+}
+
+.indice-boton::-webkit-details-marker {
+  display: none;
+}
+
+.indice-boton:hover,
+.indice[open] .indice-boton {
+  border-color: var(--accent);
+}
+
+.indice-icono {
+  color: var(--accent);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.indice-posicion {
+  color: var(--ink-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.indice-actual {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.indice-flecha {
+  margin-left: auto;
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.indice[open] .indice-flecha {
+  transform: rotate(180deg);
+}
+
+.indice-progreso {
+  flex: 1;
+  min-width: 40px;
+  /* Con flex:1 a secas la barra cruzaba media pantalla y se leia como
+     un separador, no como un progreso. */
+  max-width: 420px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+
+.indice-progreso-relleno {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.indice-vecinos {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.indice-vecino {
+  border: 1px solid var(--hairline);
+  background: var(--bg-card);
+  color: var(--ink-soft);
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.indice-vecino:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.indice-vecino:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Panel: cuatro columnas; Inicio y Anexo comparten la primera */
+.indice-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 18px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(15, 30, 51, 0.18);
+}
+
+.indice-bloque-0 { grid-column: 1; grid-row: 1; }
+.indice-bloque-4 { grid-column: 1; grid-row: 2; }
+.indice-bloque-1 { grid-column: 2; grid-row: 1 / span 2; }
+.indice-bloque-2 { grid-column: 3; grid-row: 1 / span 2; }
+.indice-bloque-3 { grid-column: 4; grid-row: 1 / span 2; }
+
+.indice-bloque-titulo {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px 9px;
+}
+
+.indice-item {
+  display: grid;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.indice-item:hover {
+  background: var(--bg-soft);
+}
+
+.indice-item-nombre {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.indice-item-texto {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+.indice-item-activo {
+  background: var(--accent-tint);
+}
+
+.indice-item-activo .indice-item-nombre {
+  color: var(--accent);
+}
+
+@media (max-width: 992px) {
+  .indice-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .indice-bloque-0,
+  .indice-bloque-1,
+  .indice-bloque-2,
+  .indice-bloque-3,
+  .indice-bloque-4 {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 576px) {
+  .indice-barra {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .indice {
+    flex: 1 1 100%;
+  }
+
+  .indice-boton {
+    width: 100%;
+  }
+
+  .indice-flecha {
+    margin-left: auto;
+  }
+
+  .indice-progreso {
+    display: none;
+  }
+
+  .indice-vecinos {
+    flex: 1 1 100%;
+  }
+
+  .indice-vecino {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .indice-panel {
+    grid-template-columns: 1fr;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indice-flecha,
+  .indice-progreso-relleno {
+    transition: none;
+  }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Las dos navegaciones se turnan                                             */
+/* -------------------------------------------------------------------------- */
+/* En la portada se ven las once pestañas; en cuanto entras en una sección las
+   sustituye el índice. La clase la pone un callback de cliente en app.py. Las
+   dos piezas miden lo mismo de alto, así que el cambio no mueve la página. */
+.nav-pestanas,
+.nav-indice {
+  min-height: 48px;
+  align-items: center;
+}
+
+.nav-pestanas {
+  display: flex;
+}
+
+.nav-pestanas .main-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-indice {
+  display: none;
+}
+
+.nav-indice .indice-barra {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.navbar-tabs.en-seccion .nav-pestanas {
+  display: none;
+}
+
+.navbar-tabs.en-seccion .nav-indice {
+  display: flex;
+}
+
+/* El fundido solo se dispara cuando la clase cambia, es decir al entrar y al
+   salir de la portada. Entre secciones no se repite. */
+.navbar-tabs .nav-pestanas,
+.navbar-tabs.en-seccion .nav-indice {
+  animation: nav-entra 0.22s ease;
+}
+
+@keyframes nav-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar-tabs .nav-pestanas,
+  .navbar-tabs.en-seccion .nav-indice {
+    animation: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Cabeceras de página y secciones                                            */
 /* -------------------------------------------------------------------------- */
 /* OJO: no llamar a esto .tab-content. dbc.Tabs genera su propio contenedor de

@@ -227,8 +227,8 @@ def layout() -> html.Div:
                             html.Span(
                                 [
                                     html.B("Dashboard: "),
-                                    "esta capa interactiva, con el EDA navegable y el "
-                                    "selector de conjunto de datos.",
+                                    "esta capa interactiva, con el EDA navegable y la "
+                                    "exploración variable a variable.",
                                 ]
                             ),
                             html.Span(

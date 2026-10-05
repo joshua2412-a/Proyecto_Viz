@@ -33,59 +33,8 @@ from utils.data_loader import (
     proporcion_grado,
     tamanos_particion,
 )
+from utils.navegacion import BLOQUES, DESCRIPCIONES, ETIQUETAS, ICONOS
 from utils.theme import ACCENT_NEUTRAL, COLOR_GBM, COLOR_LGG
-
-# --------------------------------------------------------------------------- #
-# Guía de lectura
-# --------------------------------------------------------------------------- #
-# Las diez pestañas agrupadas en tres bloques. Diez tarjetas sueltas eran un
-# muro que además repetía la barra de pestañas de arriba; en tres bloques la
-# portada cuenta de paso cómo está estructurado el trabajo.
-#
-# El id de cada entrada tiene que coincidir con el `tab_id` de PESTANAS en
-# app.py: es lo que viaja en el botón y lo que recibe el callback.
-BLOQUES = [
-    {
-        "numero": "01",
-        "titulo": "El contexto",
-        "resumen": "Qué está en juego al distinguir los dos grados y por qué "
-                   "hacerlo bien sale caro hoy.",
-        "pestanas": [
-            ("bi-heart-pulse", "Contexto clínico", "tab-contexto",
-             "Qué son LGG y GBM y por qué importa distinguirlos."),
-            ("bi-exclamation-circle", "Problema", "tab-problema",
-             "El coste de la secuenciación completa como cuello de botella."),
-            ("bi-bullseye", "Objetivos", "tab-objetivos",
-             "Qué se propone resolver el proyecto y con qué criterio."),
-        ],
-    },
-    {
-        "numero": "02",
-        "titulo": "El método",
-        "resumen": "Las variables del panel, la partición de los datos y las "
-                   "pruebas que sostienen cada cifra del tablero.",
-        "pestanas": [
-            ("bi-journal-text", "Marco teórico", "tab-marco",
-             "Las variables del panel y las pruebas estadísticas."),
-            ("bi-clipboard-data", "Metodología", "tab-metodologia",
-             "Partición, control de calidad y contrastes aplicados."),
-        ],
-    },
-    {
-        "numero": "03",
-        "titulo": "Los hallazgos",
-        "resumen": "El análisis variable a variable, lo que se puede concluir "
-                   "de él y, sobre todo, lo que no.",
-        "pestanas": [
-            ("bi-bar-chart-line", "Resultados", "tab-resultados",
-             "El análisis exploratorio, variable a variable."),
-            ("bi-exclamation-triangle", "Limitaciones", "tab-limitaciones",
-             "Qué NO se puede concluir con este trabajo."),
-            ("bi-check2-circle", "Conclusiones", "tab-conclusiones",
-             "Hallazgos del EDA y siguiente paso del proyecto."),
-        ],
-    },
-]
 
 
 # --------------------------------------------------------------------------- #
@@ -186,17 +135,24 @@ def _kpis() -> list[dict]:
     ]
 
 
-def _enlace_pestana(icono: str, nombre: str, tab_id: str, descripcion: str) -> html.Button:
+def _enlace_pestana(
+    tab_id: str, nombre: str | None = None, descripcion: str | None = None
+) -> html.Button:
     """Fila clicable que lleva a otra pestaña.
 
     Es un `<button>` de verdad, no una tarjeta decorativa: antes estas fichas
     se levantaban al pasar el ratón, invitaban al clic y no hacían nada. El id
     es de tipo diccionario para que un solo callback (`ir_a_pestana` en app.py)
     atienda a todas mediante pattern matching.
+
+    El nombre y la descripción salen de utils/navegacion.py salvo que se pasen
+    a mano, que es lo que hace la tira de documentación con su «Ir a».
     """
+    nombre = nombre or ETIQUETAS[tab_id]
+    descripcion = descripcion or DESCRIPCIONES[tab_id]
     return html.Button(
         [
-            html.I(className=f"bi {icono} bloque-icono"),
+            html.I(className=f"bi {ICONOS[tab_id]} bloque-icono"),
             html.Span(
                 [
                     html.Span(nombre, className="bloque-enlace-nombre"),
@@ -225,7 +181,7 @@ def _bloque(bloque: dict) -> dbc.Card:
             ),
             html.P(bloque["resumen"], className="bloque-resumen"),
             html.Div(
-                [_enlace_pestana(*pestana) for pestana in bloque["pestanas"]],
+                [_enlace_pestana(tab_id) for tab_id in bloque["pestanas"]],
                 className="bloque-enlaces",
             ),
         ],
@@ -259,10 +215,10 @@ def _tira_documentacion() -> dbc.Card:
                 dbc.Col(
                     html.Div(
                         _enlace_pestana(
-                            "bi-book",
-                            "Ir a Documentación",
                             "tab-documentacion",
-                            "El Jupyter Book y el repositorio del proyecto.",
+                            nombre="Ir a Documentación",
+                            descripcion="El Jupyter Book y el repositorio del "
+                                        "proyecto.",
                         ),
                         className="bloque-enlaces",
                     ),
@@ -372,6 +328,7 @@ def layout() -> html.Div:
                 [
                     dbc.Col(_bloque(bloque), lg=4, md=6, xs=12, className="mb-3")
                     for bloque in BLOQUES
+                    if bloque["en_guia"]
                 ],
                 className="g-3",
             ),

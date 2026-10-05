@@ -227,25 +227,48 @@ def _panel_pruebas(variable: str, ambito: str) -> dbc.Accordion:
 
 
 def _panel_bivariado(variable: str, ambito: str) -> html.Div:
-    """La variable frente al grado, con su lectura y sus pruebas."""
+    """La variable frente al grado, con su lectura y sus pruebas.
+
+    Siempre sobre el conjunto de entrenamiento, da igual qué pida el selector:
+    cruzar una variable con el grado en el conjunto reservado es justo lo que
+    ese conjunto no debe contar todavía. Si el selector pide otro conjunto, se
+    avisa en vez de cambiar los números por detrás.
+    """
     ficha = ficha_variable(variable)
     es_numerica = ficha["tipo"] == "numerica"
+    aviso = (
+        []
+        if ambito == "train"
+        else [
+            callout(
+                f"Tienes seleccionado el {AMBITO_NOMBRES[ambito]}, pero esta "
+                "comparación y sus pruebas se describen siempre sobre el de "
+                "entrenamiento. El conjunto de prueba se apartó para evaluar un "
+                "modelo más adelante, y eso solo vale si nadie ha mirado antes cómo "
+                "se relacionan ahí las variables con el grado. La vista univariada "
+                "sí respeta tu selección: ahí no se cruza nada con el grado.",
+                titulo="Esta vista no cambia de conjunto",
+            )
+        ]
+    )
 
     nota = (
         "Cada grado se normaliza a su propio 100 %, porque los dos grupos no "
-        "tienen el mismo tamaño."
+        "tienen el mismo tamaño. Conjunto de entrenamiento."
         if es_numerica
         else "El porcentaje se calcula dentro de cada categoría: la pregunta es "
-             "qué proporción de ese grupo acaba siendo GBM."
+             "qué proporción de ese grupo acaba siendo GBM. Conjunto de "
+             "entrenamiento."
     )
 
     return html.Div(
-        [
+        aviso
+        + [
             dbc.Row(
                 [
                     dbc.Col(
                         graph_card(
-                            fig_bivariada(variable, ambito),
+                            fig_bivariada(variable, "train"),
                             f"{ficha['nombre']} frente al grado tumoral",
                             nota,
                         ),
@@ -253,13 +276,13 @@ def _panel_bivariado(variable: str, ambito: str) -> html.Div:
                         className="mb-4",
                     ),
                     dbc.Col(
-                        lectura_guiada(lectura_bivariada(variable, ambito)),
+                        lectura_guiada(lectura_bivariada(variable, "train")),
                         lg=5,
                         className="mb-4",
                     ),
                 ]
             ),
-            _panel_pruebas(variable, ambito),
+            _panel_pruebas(variable, "train"),
         ]
     )
 
@@ -283,7 +306,11 @@ def layout() -> html.Div:
                 "grado tumoral sin salir del mismo módulo. La forma del gráfico "
                 "la decide el tipo de dato: una variable continua pide una "
                 "distribución y una categórica pide una comparación de "
-                "proporciones.",
+                "proporciones. El conjunto de datos solo cambia la vista "
+                "univariada, que es descripción pura y sirve para comprobar que "
+                "la partición quedó repartida de forma parecida; la comparación "
+                "contra el grado y sus pruebas se describen siempre sobre "
+                "entrenamiento.",
                 eyebrow="Módulo interactivo",
             ),
             _controles(),

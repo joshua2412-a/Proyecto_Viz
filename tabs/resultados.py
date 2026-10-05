@@ -1,7 +1,9 @@
 """
 Pestaña 8 · Resultados
-El análisis exploratorio completo, con un selector que permite recorrer el
-mismo conjunto de figuras sobre entrenamiento, prueba o el dataset entero.
+El análisis exploratorio completo, siempre sobre el conjunto de entrenamiento:
+cruzar las predictoras con el grado en el conjunto reservado gastaría la
+reserva que después hace falta para evaluar un modelo. La comparación entre
+particiones, que es descripción y no inferencia, vive en Exploración.
 """
 
 from __future__ import annotations
@@ -9,7 +11,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
-from dash import Input, Output, callback, dcc, html
+from dash import html
 
 from utils.formato import num, pct
 from utils.components import (
@@ -53,9 +55,6 @@ from utils.figures import (
 )
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
-ID_AMBITO = "res-ambito"
-ID_EDA = "res-eda"
-
 
 def _kpis() -> list[dict]:
     """Los cuatro hallazgos que resumen el análisis, sobre entrenamiento."""
@@ -91,33 +90,6 @@ def _kpis() -> list[dict]:
             "detalle": f"Sobre {int(proporciones['pacientes'].sum())} pacientes de entrenamiento",
         },
     ]
-
-
-def _selector_ambito() -> html.Div:
-    """Selector del conjunto de datos que describen los gráficos del EDA."""
-    tamanos = tamanos_particion()
-    return html.Div(
-        [
-            html.Span("Conjunto de datos:", className="control-label me-3"),
-            dcc.RadioItems(
-                id=ID_AMBITO,
-                options=[
-                    {
-                        "label": f" Entrenamiento ({tamanos['train']})",
-                        "value": "train",
-                    },
-                    {"label": f" Prueba ({tamanos['test']})", "value": "test"},
-                    {"label": f" Completo ({tamanos['full']})", "value": "full"},
-                ],
-                value="train",
-                inline=True,
-                className="ambito-radio",
-                inputClassName="me-1",
-                labelClassName="me-4",
-            ),
-        ],
-        className="filter-row",
-    )
 
 
 def _tabla_asociacion(ambito: str) -> dbc.Table:
@@ -435,18 +407,20 @@ def layout() -> html.Div:
             kpi_row(_kpis()),
             section_title("Análisis exploratorio"),
             callout(
-                "El EDA se describe por defecto sobre el conjunto de entrenamiento, igual "
-                "que en el libro: mirar el conjunto de prueba antes de evaluar el modelo "
-                "sería filtrar información. El selector permite comprobar que la "
-                "estratificación mantuvo la misma estructura en todas las particiones.",
-                titulo="Por qué el selector empieza en entrenamiento",
+                f"Todo lo que sigue se calcula sobre el conjunto de entrenamiento "
+                f"({tamanos_particion()['train']} pacientes), igual que en el libro. El resto se "
+                "apartó antes de "
+                "mirar nada y aquí no se cruza con el grado: si estas pruebas se "
+                "corrieran también sobre él, la evaluación del modelo que venga después "
+                "dejaría de ser independiente, porque las variables se habrían elegido "
+                "sabiendo lo que ese conjunto decía. Para comprobar que la partición "
+                "quedó repartida de forma parecida, la pestaña Exploración permite "
+                "comparar la distribución de cada variable entre los tres conjuntos, "
+                "sin cruzarla con el grado.",
+                titulo="Sobre qué datos está hecho este análisis",
             ),
-            _selector_ambito(),
             html.Div(series_chips(), className="mb-3"),
-            dcc.Loading(
-                html.Div(_bloque_eda("train"), id=ID_EDA),
-                type="dot",
-            ),
+            _bloque_eda("train"),
             callout(
                 "El modelado —la traducción de estos hallazgos en un clasificador— es el "
                 "paso natural a partir de aquí, con el conjunto de prueba ya reservado "
@@ -456,12 +430,3 @@ def layout() -> html.Div:
         ],
         className="vista-pestana",
     )
-
-
-# --------------------------------------------------------------------------- #
-# Callbacks propios de la pestaña
-# --------------------------------------------------------------------------- #
-@callback(Output(ID_EDA, "children"), Input(ID_AMBITO, "value"))
-def actualizar_eda(ambito: str):
-    """Reconstruye las figuras del EDA con el conjunto de datos seleccionado."""
-    return _bloque_eda(ambito or "train")

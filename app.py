@@ -19,10 +19,22 @@ Ejecución:
 from __future__ import annotations
 
 import dash_bootstrap_components as dbc
-from dash import ALL, Dash, Input, Output, callback, ctx, dcc, html, no_update
+from dash import (
+    ALL,
+    Dash,
+    Input,
+    Output,
+    State,
+    callback,
+    ctx,
+    dcc,
+    html,
+    no_update,
+)
 
 from utils.config import AUTORES, DATA_PATH, URL_LIBRO
 from utils.formato import lista_y
+from utils.navegacion import BLOQUES, DESCRIPCIONES, ETIQUETAS, ORDEN
 from utils.theme import BG_PAGE, INK_MUTED, STATUS_CRITICAL
 
 # Módulos de pestañas: cada uno expone una función layout()
@@ -41,25 +53,27 @@ from tabs import (
 )
 
 # --------------------------------------------------------------------------- #
-# 1. Registro de pestañas: (id, etiqueta, módulo)
-#    Añadir una pestaña nueva = crear tabs/mi_pestana.py y sumar una fila aquí.
+# 1. Registro de pestañas: qué módulo pinta cada una
+#    El orden, las etiquetas, los iconos y las descripciones viven en
+#    utils/navegacion.py, que es lo que también lee la guía de la portada.
+#    Añadir una pestaña = crear tabs/mi_pestana.py, sumarla allí y aquí.
 # --------------------------------------------------------------------------- #
-PESTANAS = [
-    ("tab-introduccion", "Introducción", introduccion),
-    ("tab-contexto", "Contexto clínico", contexto),
-    ("tab-problema", "Problema", problema),
-    ("tab-objetivos", "Objetivos", objetivos),
-    ("tab-marco", "Marco teórico", marco_teorico),
-    ("tab-metodologia", "Metodología", metodologia),
-    ("tab-exploracion", "Exploración", exploracion),
-    ("tab-resultados", "Resultados", resultados),
-    ("tab-limitaciones", "Limitaciones", limitaciones),
-    ("tab-conclusiones", "Conclusiones", conclusiones),
-    ("tab-documentacion", "Documentación", documentacion),
-]
+MODULOS = {
+    "tab-introduccion": introduccion,
+    "tab-contexto": contexto,
+    "tab-problema": problema,
+    "tab-objetivos": objetivos,
+    "tab-marco": marco_teorico,
+    "tab-metodologia": metodologia,
+    "tab-exploracion": exploracion,
+    "tab-resultados": resultados,
+    "tab-limitaciones": limitaciones,
+    "tab-conclusiones": conclusiones,
+    "tab-documentacion": documentacion,
+}
 
-LAYOUTS = {tab_id: modulo.layout for tab_id, _, modulo in PESTANAS}
-TAB_INICIAL = PESTANAS[0][0]
+LAYOUTS = {tab_id: modulo.layout for tab_id, modulo in MODULOS.items()}
+TAB_INICIAL = ORDEN[0]
 
 
 # --------------------------------------------------------------------------- #
@@ -154,28 +168,120 @@ def barra_superior() -> html.Div:
     )
 
 
+def _panel_indice() -> list[html.Div]:
+    """Las pestañas del índice, agrupadas en las mismas etapas que la portada."""
+    return [
+        html.Div(
+            [html.Div(bloque["titulo"], className="indice-bloque-titulo")]
+            + [
+                html.Button(
+                    [
+                        html.Span(ETIQUETAS[tab_id], className="indice-item-nombre"),
+                        html.Span(
+                            DESCRIPCIONES[tab_id], className="indice-item-texto"
+                        ),
+                    ],
+                    id={"type": "indice-item", "index": tab_id},
+                    className="indice-item",
+                    n_clicks=0,
+                )
+                for tab_id in bloque["pestanas"]
+            ],
+            className=f"indice-bloque indice-bloque-{numero}",
+        )
+        for numero, bloque in enumerate(BLOQUES)
+    ]
+
+
+def _barra_indice() -> html.Div:
+    """Índice desplegable, barra de progreso y botones anterior/siguiente.
+
+    El desplegable es un <details> nativo: se abre y se cierra sin callbacks y
+    responde al teclado. assets/indice.js solo añade lo que <details> no trae,
+    que es cerrarse al elegir, con Escape y al hacer clic fuera.
+    """
+    return html.Div(
+        [
+            html.Details(
+                [
+                    html.Summary(
+                        [
+                            html.I(className="bi bi-list indice-icono"),
+                            html.Span(
+                                id="indice-posicion", className="indice-posicion"
+                            ),
+                            html.Span(id="indice-actual", className="indice-actual"),
+                            html.I(className="bi bi-chevron-down indice-flecha"),
+                        ],
+                        className="indice-boton",
+                    ),
+                    html.Div(_panel_indice(), className="indice-panel"),
+                ],
+                id="indice",
+                className="indice",
+            ),
+            html.Div(
+                html.Div(id="indice-progreso", className="indice-progreso-relleno"),
+                className="indice-progreso",
+            ),
+            html.Div(
+                [
+                    html.Button(
+                        id="indice-anterior", className="indice-vecino", n_clicks=0
+                    ),
+                    html.Button(
+                        id="indice-siguiente", className="indice-vecino", n_clicks=0
+                    ),
+                ],
+                className="indice-vecinos",
+            ),
+        ],
+        className="indice-barra",
+    )
+
+
 def navegacion() -> html.Div:
-    """Barra de pestañas principal."""
+    """Navegación: las once pestañas en la portada, el índice en el resto.
+
+    Las dos piezas están siempre en el DOM y se turnan con una clase que pone
+    un callback de cliente. En la introducción se ven las once pestañas, que es
+    donde se presenta el tablero y conviene que se vea de un vistazo todo lo que
+    hay; en cuanto entras en una sección se cambian por el índice, que ocupa lo
+    mismo pero además dice dónde estás, cuánto llevas y deja saltar a cualquier
+    otra sin volver arriba. El panel del índice repite la guía de la portada a
+    propósito: nunca se ven a la vez.
+
+    `dbc.Tabs` sigue siendo quien guarda la pestaña activa. El índice solo le
+    escribe, así que el enrutado y la guía de la portada no se enteran de nada.
+    """
     return html.Div(
         dbc.Container(
-            dbc.Tabs(
-                [
-                    dbc.Tab(
-                        label=etiqueta,
-                        tab_id=tab_id,
-                        # label_* aplica la clase al <a>; tab_* la aplicaria al
-                        # <li> de fuera, y entonces el subrayado se dibuja dos veces.
-                        label_class_name="main-tab",
-                        active_label_class_name="main-tab-active",
-                    )
-                    for tab_id, etiqueta, _ in PESTANAS
-                ],
-                id="tabs-principal",
-                active_tab=TAB_INICIAL,
-                className="main-tabs",
-            ),
+            [
+                html.Div(
+                    dbc.Tabs(
+                        [
+                            dbc.Tab(
+                                label=ETIQUETAS[tab_id],
+                                tab_id=tab_id,
+                                # label_* aplica la clase al <a>; tab_* la aplicaria
+                                # al <li> de fuera, y entonces el subrayado se
+                                # dibuja dos veces.
+                                label_class_name="main-tab",
+                                active_label_class_name="main-tab-active",
+                            )
+                            for tab_id in ORDEN
+                        ],
+                        id="tabs-principal",
+                        active_tab=TAB_INICIAL,
+                        className="main-tabs",
+                    ),
+                    className="nav-pestanas",
+                ),
+                html.Div(_barra_indice(), className="nav-indice"),
+            ],
             fluid=True,
         ),
+        id="barra-navegacion",
         className="navbar-tabs",
     )
 
@@ -278,7 +384,8 @@ def ir_a_pestana(clics: list[int | None]):
 
     Un solo callback atiende a todos los botones gracias al pattern matching:
     el identificador de cada uno lleva dentro su `tab_id` de destino, que es el
-    mismo de PESTANAS. Añadir una entrada a la guía no obliga a tocar esto.
+    mismo de utils/navegacion.py. Añadir una entrada a la guía no obliga a
+    tocar esto.
 
     El guardia del principio es necesario: Dash dispara el callback también
     cuando los botones se montan (al abrir la introducción), no solo al
@@ -320,8 +427,87 @@ app.clientside_callback(
 )
 
 
+# La navegación también cambia de forma al salir de la portada: las once
+# pestañas dejan paso al índice. Misma clase, mismo criterio y el mismo viaje
+# ahorrado al servidor que en la barra de arriba.
+app.clientside_callback(
+    """
+    function (pestana) {
+        return pestana === '{TAB_INICIAL}'
+            ? 'navbar-tabs'
+            : 'navbar-tabs en-seccion';
+    }
+    """.replace("{TAB_INICIAL}", TAB_INICIAL),
+    Output("barra-navegacion", "className"),
+    Input("tabs-principal", "active_tab"),
+)
+
+
 # --------------------------------------------------------------------------- #
-# 8. Punto de entrada
+# 8. Índice desplegable
+# --------------------------------------------------------------------------- #
+@callback(
+    Output("tabs-principal", "active_tab", allow_duplicate=True),
+    Input({"type": "indice-item", "index": ALL}, "n_clicks"),
+    Input("indice-anterior", "n_clicks"),
+    Input("indice-siguiente", "n_clicks"),
+    State("tabs-principal", "active_tab"),
+    prevent_initial_call=True,
+)
+def navegar_con_indice(_items, _anterior, _siguiente, actual: str):
+    """Cambia de pestaña desde el índice o desde anterior/siguiente.
+
+    El guardia mira el valor que disparó el callback y no solo quién lo
+    disparó: al montarse, los botones llegan con n_clicks=0 y eso no es un clic.
+    """
+    disparo = ctx.triggered_id
+    if not disparo or not ctx.triggered[0]["value"]:
+        return no_update
+    posicion = ORDEN.index(actual)
+    if disparo == "indice-anterior":
+        return ORDEN[max(posicion - 1, 0)]
+    if disparo == "indice-siguiente":
+        return ORDEN[min(posicion + 1, len(ORDEN) - 1)]
+    return disparo["index"]
+
+
+@callback(
+    Output("indice-posicion", "children"),
+    Output("indice-actual", "children"),
+    Output("indice-progreso", "style"),
+    Output("indice-anterior", "children"),
+    Output("indice-anterior", "disabled"),
+    Output("indice-siguiente", "children"),
+    Output("indice-siguiente", "disabled"),
+    Output({"type": "indice-item", "index": ALL}, "className"),
+    Input("tabs-principal", "active_tab"),
+)
+def actualizar_indice(actual: str):
+    """Rellena el botón del índice, la barra de progreso y los vecinos."""
+    posicion = ORDEN.index(actual)
+    total = len(ORDEN)
+    anterior = ETIQUETAS[ORDEN[posicion - 1]] if posicion > 0 else "Inicio"
+    siguiente = ETIQUETAS[ORDEN[posicion + 1]] if posicion < total - 1 else "Fin"
+    clases = [
+        "indice-item indice-item-activo"
+        if salida["id"]["index"] == actual
+        else "indice-item"
+        for salida in ctx.outputs_list[-1]
+    ]
+    return (
+        f"{posicion + 1} de {total}",
+        ETIQUETAS[actual],
+        {"width": f"{(posicion + 1) / total * 100:.1f}%"},
+        [html.I(className="bi bi-arrow-left me-1"), anterior],
+        posicion == 0,
+        [siguiente, html.I(className="bi bi-arrow-right ms-1")],
+        posicion == total - 1,
+        clases,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 9. Punto de entrada
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
     # Este bloque SOLO corre al lanzar `python app.py` a mano. En el contenedor

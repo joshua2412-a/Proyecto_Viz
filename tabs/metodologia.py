@@ -52,7 +52,10 @@ ETAPAS = [
         "Partición estratificada 80/20",
         "Se reserva el 20 % de los pacientes antes de mirar cualquier estadístico, "
         "de modo que el EDA no filtre información del conjunto de prueba. La "
-        "estratificación mantiene la proporción LGG/GBM en ambos lados.",
+        "estratificación mantiene la proporción LGG/GBM en ambos lados. Ninguna "
+        "prueba ni ninguna comparación contra el grado se calcula sobre esa "
+        "reserva; en Exploración se puede comparar la distribución de cada "
+        "variable entre particiones, que es descripción y no compromete nada.",
     ),
     (
         "3",

@@ -187,7 +187,7 @@ mirado antes los datos de prueba.
 | **Objetivos** | Objetivo general, seis específicos y criterios de cumplimiento comprobados en vivo contra los datos |
 | **Marco teórico** | Operacionalización de variables, significancia frente a tamaño del efecto, V de Cramér, Spearman y panel de genes |
 | **Metodología** | Seis etapas, correspondencia entre tipo de dato y contraste, y las cinco pruebas aplicadas |
-| **Resultados** | Selector de conjunto (entrenamiento / prueba / completo): distribución del grado, edad, variables clínicas, prevalencia de mutaciones, asociación con el grado y matriz de multicolinealidad |
+| **Resultados** | Sobre el conjunto de entrenamiento: distribución del grado, edad, variables clínicas, prevalencia de mutaciones, asociación con el grado, matriz de correlaciones y multicolinealidad (VIF) |
 | **Limitaciones** | Ocho fronteras del trabajo, con la tabla de representatividad de la cohorte |
 | **Conclusiones** | Hallazgos con su evidencia, siguientes pasos y entregables |
 | **Documentación** | Enlaces al Jupyter Book capítulo a capítulo y vista embebida |
