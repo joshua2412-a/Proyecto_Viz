@@ -21,7 +21,8 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import ALL, Dash, Input, Output, callback, ctx, dcc, html, no_update
 
-from utils.config import DATA_PATH, URL_LIBRO
+from utils.config import AUTORES, DATA_PATH, URL_LIBRO
+from utils.formato import lista_y
 from utils.theme import BG_PAGE, INK_MUTED, STATUS_CRITICAL
 
 # Módulos de pestañas: cada uno expone una función layout()
@@ -130,7 +131,8 @@ def barra_superior() -> html.Div:
                             html.A(
                                 [
                                     html.I(className="bi bi-journal-text me-2"),
-                                    "Abrir el Jupyter Book",
+                                    html.Span("Abrir el", className="boton-libro-largo"),
+                                    "Jupyter Book",
                                 ],
                                 href=URL_LIBRO,
                                 target="_blank",
@@ -147,6 +149,7 @@ def barra_superior() -> html.Div:
             ),
             fluid=True,
         ),
+        id="barra-superior",
         className="topbar",
     )
 
@@ -186,7 +189,9 @@ def pie_pagina() -> html.Div:
                 html.Span(" · ", className="footer-sep"),
                 html.Span("Dataset: Glioma Grading Clinical and Mutation Features (TCGA, 839 pacientes)"),
                 html.Span(" · ", className="footer-sep"),
-                html.Span("Análisis exploratorio · Dash y Plotly"),
+                html.Span(
+                    "Autores: " + lista_y(autor["nombre"] for autor in AUTORES)
+                ),
                 html.Span(" · ", className="footer-sep"),
                 html.A(
                     "Documentación completa",
@@ -296,6 +301,21 @@ app.clientside_callback(
     }
     """,
     Output("ancla-scroll", "data"),
+    Input("tabs-principal", "active_tab"),
+)
+
+
+# La barra superior completa solo tiene sentido en la portada. En el resto de
+# pestañas se queda en una franja fina con el título y el enlace al libro, para
+# que el contenido empiece más arriba. Se hace en el cliente: es cambiar una
+# clase y no merece un viaje al servidor.
+app.clientside_callback(
+    """
+    function (pestana) {
+        return pestana === '{TAB_INICIAL}' ? 'topbar' : 'topbar topbar-fina';
+    }
+    """.replace("{TAB_INICIAL}", TAB_INICIAL),
+    Output("barra-superior", "className"),
     Input("tabs-principal", "active_tab"),
 )
 

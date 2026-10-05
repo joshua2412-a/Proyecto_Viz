@@ -36,6 +36,26 @@ URL_DASHBOARD = "https://gliomas-dashboard-984926604434.us-central1.run.app"
 URL_LIBRO = "https://joshua2412-a.github.io/Proyecto_Viz/"
 URL_LIBRO_EDA = f"{URL_LIBRO}01_EDA.html"
 URL_REPO_LIBRO = "https://github.com/joshua2412-a/Proyecto_Viz"
+
+# Autores del proyecto. El orden es el mismo que en la portada del libro
+# (jbook/intro.md) y en `author` de jbook/_config.yml: los tres sitios firman
+# igual. Un perfil que falte se omite sin dejar un enlace roto, así que basta
+# con no poner la clave.
+AUTORES = [
+    {
+        "nombre": "Alejandro Cantillo Escorcia",
+        "github": "https://github.com/Alej0126",
+        "linkedin": "https://www.linkedin.com/in/alejandro-cantillo-a8a13b3a6",
+    },
+    {
+        "nombre": "Joshua Hincapie LLorente",
+        "github": "https://github.com/joshua2412-a",
+        "linkedin": (
+            "https://www.linkedin.com/in/"
+            "joshua-alessandro-hincapie-llorente-74b305441"
+        ),
+    },
+]
 URL_DATASET = (
     "https://archive.ics.uci.edu/dataset/759/"
     "glioma+grading+clinical+and+mutation+features+dataset"

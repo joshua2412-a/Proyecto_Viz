@@ -119,6 +119,75 @@ body {
   padding: 0;
 }
 
+/* Barra fina: la que se ve en todas las pestañas menos la introducción (la
+   clase la pone un callback de app.py). Doble clase para ganar a la regla de
+   .topbar del bloque responsive, que va más abajo en el archivo. */
+.topbar {
+  transition: padding 0.25s ease;
+}
+
+.topbar.topbar-fina {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.topbar-fina .brand-eyebrow,
+.topbar-fina .brand-subtitle {
+  display: none;
+}
+
+.topbar-fina .brand-title {
+  font-size: 1.1rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Título y botón en una sola fila también en móvil, donde Bootstrap apila
+   las dos columnas */
+.topbar-fina .row {
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin: 0;
+}
+
+.topbar-fina .row > * {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.topbar-fina .row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.topbar-fina .tech-pills {
+  margin-top: 0 !important;
+}
+
+.topbar-fina .boton-libro {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+}
+
+/* El espacio va como margen: dentro de un inline-flex el espacio final del
+   texto se pierde y quedaria "Abrir elJupyter Book" */
+.boton-libro-largo {
+  margin-right: 0.3em;
+}
+
+@media (max-width: 768px) {
+  .topbar-fina .boton-libro-largo {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar { transition: none; }
+}
+
 .brand-eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -416,6 +485,17 @@ body {
   margin: 0 0 18px;
 }
 
+/* La firma del tablero: los mismos autores y el mismo orden que la portada del
+   libro. Discreta, que la portada la protagoniza el titular. */
+.hero-firma {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+  max-width: 48ch;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
 /* La ilustracion es un SVG: se estira sin perder nitidez y no lleva ancho fijo */
 .hero-imagen {
   display: block;
@@ -608,6 +688,71 @@ body {
   font-size: 0.85rem;
   color: var(--ink-soft);
   line-height: 1.6;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Autores (Documentación)                                                    */
+/* -------------------------------------------------------------------------- */
+.autor-ficha {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.autor-monograma {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  background: var(--grad-acento);
+  box-shadow: 0 1px 3px rgba(30, 78, 134, 0.3);
+}
+
+.autor-cuerpo {
+  min-width: 0;
+}
+
+.autor-nombre {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+}
+
+.autor-enlaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.autor-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.autor-enlace:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-tint);
 }
 
 /* -------------------------------------------------------------------------- */

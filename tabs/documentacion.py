@@ -24,6 +24,7 @@ from utils.components import (
     section_title,
 )
 from utils.config import (
+    AUTORES,
     URL_LIBRO,
     URL_LIBRO_EDA,
     URL_REPO_LIBRO,
@@ -51,6 +52,59 @@ CAPITULOS = [
         URL_REPO_LIBRO,
     ),
 ]
+
+
+# Perfiles que puede tener un autor: (clave en AUTORES, etiqueta, icono).
+ENLACES_AUTOR = (
+    ("github", "GitHub", "bi-github"),
+    ("linkedin", "LinkedIn", "bi-linkedin"),
+)
+
+
+def _iniciales(nombre: str) -> str:
+    """Las dos primeras iniciales del nombre: "Alejandro Cantillo..." -> "AC"."""
+    return "".join(parte[0] for parte in nombre.split()[:2]).upper()
+
+
+def ficha_autor(autor: dict) -> dbc.Card:
+    """Tarjeta de un autor: monograma, nombre y los perfiles que tenga.
+
+    Los enlaces se dibujan solo si existen en AUTORES, así que un perfil que
+    falte no deja un botón que lleve a ninguna parte.
+    """
+    nombre = autor["nombre"]
+    enlaces = [
+        html.A(
+            [html.I(className=f"bi {icono}"), html.Span(etiqueta)],
+            href=autor[clave],
+            target="_blank",
+            rel="noopener noreferrer",
+            className="autor-enlace",
+            **{"aria-label": f"{etiqueta} de {nombre}"},
+        )
+        for clave, etiqueta, icono in ENLACES_AUTOR
+        if autor.get(clave)
+    ]
+
+    return card(
+        html.Div(
+            [
+                html.Div(
+                    _iniciales(nombre),
+                    className="autor-monograma",
+                    **{"aria-hidden": "true"},
+                ),
+                html.Div(
+                    [
+                        html.Div(nombre, className="autor-nombre"),
+                        html.Div(enlaces, className="autor-enlaces"),
+                    ],
+                    className="autor-cuerpo",
+                ),
+            ],
+            className="autor-ficha",
+        ),
+    )
 
 
 def layout() -> html.Div:
@@ -199,6 +253,14 @@ def layout() -> html.Div:
                 ],
                 titulo="Vista embebida",
                 subtitulo="Versión publicada en GitHub Pages",
+            ),
+            section_title("Autores"),
+            dbc.Row(
+                [
+                    dbc.Col(ficha_autor(autor), md=6, xs=12, className="mb-3")
+                    for autor in AUTORES
+                ],
+                className="g-3",
             ),
         ],
         className="vista-pestana",

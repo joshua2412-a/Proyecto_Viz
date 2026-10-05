@@ -15,7 +15,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import get_asset_url, html
 
-from utils.formato import num, pct
+from utils.formato import lista_y, num, pct
 from utils.components import (
     bullet_list,
     callout,
@@ -26,7 +26,7 @@ from utils.components import (
     section_title,
     series_chips,
 )
-from utils.config import URL_DATASET, URL_LIBRO
+from utils.config import AUTORES, URL_DATASET, URL_LIBRO
 from utils.data_loader import (
     asociacion_con_grado,
     prevalencia_genes,
@@ -118,6 +118,11 @@ def _portada() -> html.Div:
                             className="hero-subtitulo",
                         ),
                         series_chips(),
+                        html.Div(
+                            "Por "
+                            + lista_y(autor["nombre"] for autor in AUTORES),
+                            className="hero-firma",
+                        ),
                     ],
                     lg=6,
                     className="hero-texto",

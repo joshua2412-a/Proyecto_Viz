@@ -1,5 +1,5 @@
 """
-Formato numérico en español.
+Formato en español: cifras y enumeraciones.
 
 El tablero mezclaba dos convenciones: el texto escrito a mano decía "p < 0,05"
 con coma, y cualquier cifra calculada salía como "42.0%" con punto, porque es
@@ -49,3 +49,17 @@ def p_valor(valor, umbral: float = 0.0001) -> str:
     if _es_nulo(valor):
         return "—"
     return "p < 0,0001" if valor < umbral else f"p = {num(valor, 4)}"
+
+
+def lista_y(elementos) -> str:
+    """Enumera en español: "A", "A y B", "A, B y C".
+
+    Une con comas y reserva la "y" para el último, que es como se escribe
+    una lista en español. Con dos elementos no hay coma.
+    """
+    partes = [str(elemento) for elemento in elementos if elemento]
+    if not partes:
+        return ""
+    if len(partes) == 1:
+        return partes[0]
+    return ", ".join(partes[:-1]) + " y " + partes[-1]
