@@ -28,7 +28,12 @@ from utils.config import (
     RACE_LABELS,
     URL_LIBRO_EDA,
 )
-from utils.data_loader import asociacion_con_grado, prevalencia_genes
+from utils.data_loader import (
+    ALFA,
+    EFECTO_MINIMO,
+    asociacion_con_grado,
+    prevalencia_genes,
+)
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 AMBITO = "train"
@@ -130,15 +135,25 @@ def _tabla_genes() -> dbc.Table:
     filas = []
     for gen in prevalencia.index:  # ya viene ordenado por prevalencia
         fila_prev = prevalencia.loc[gen]
-        rho = asociacion.loc[gen, "rho"]
+        # Tres decimales, como la tabla de Resultados: con dos, un ρ de 0,098
+        # se leía "+0,10", justo el umbral, y parecía que lo alcanzaba.
+        rho = round(float(asociacion.loc[gen, "rho"]), 3) + 0.0  # sin "-0,000"
         hacia = "LGG" if rho < 0 else "GBM"
-        marca = "" if asociacion.loc[gen, "significativa"] else " (no significativa)"
+        # Una variable queda fuera del panel por dos motivos distintos, y no
+        # conviene mezclarlos: no ser significativa (p ≥ α) o serlo con una
+        # asociación demasiado débil (|ρ| < umbral).
+        if asociacion.loc[gen, "significativa"]:
+            marca = ""
+        elif asociacion.loc[gen, "p_valor"] >= ALFA:
+            marca = " (no significativa)"
+        else:
+            marca = f" (débil: |ρ| < {num(EFECTO_MINIMO, 2)})"
         filas.append(
             [
                 gen,
                 GENE_DESCRIPCION.get(gen, ""),
                 f"{pct(fila_prev['prevalencia'], 1)}",
-                f"{num(rho, 2, signo=True)} → {hacia}{marca}",
+                f"{num(rho, 3, signo=True)} → {hacia}{marca}",
             ]
         )
     return data_table(

@@ -318,6 +318,10 @@ def fig_asociacion_grado(ambito: str = "train", top_n: int = 14) -> go.Figure:
     datos["efecto"] = np.where(datos["rho"] >= 0, "Hacia GBM", "Hacia LGG")
     datos["etiqueta"] = datos["rho"].map(lambda v: num(v, 2, signo=True))
     datos = datos.sort_values("rho")
+    # Las cifras van fuera de la barra; sin este margen, la de la barra más
+    # larga (IDH1, -0,70) se salía del área del gráfico y pisaba su nombre.
+    holgura = 0.12
+    rango_x = [min(datos["rho"].min(), 0) - holgura, max(datos["rho"].max(), 0) + holgura]
 
     fig = px.bar(
         datos,
@@ -356,7 +360,10 @@ def fig_asociacion_grado(ambito: str = "train", top_n: int = 14) -> go.Figure:
     fig.update_layout(
         xaxis_title="Correlación de Spearman con el grado (0 = LGG, 1 = GBM)",
         yaxis_title=None,
-        xaxis=dict(showgrid=True, gridcolor=GRID, zeroline=True, zerolinecolor=AXIS),
+        xaxis=dict(
+            showgrid=True, gridcolor=GRID, zeroline=True, zerolinecolor=AXIS,
+            range=rango_x,
+        ),
         legend_title_text="",
     )
     return apply_theme(
@@ -457,6 +464,7 @@ def fig_univariada(variable: str, ambito: str = "train") -> go.Figure:
             text=[pct(p) for p in datos["porcentaje"]],
             textposition="outside",
             textfont=dict(size=11, color=INK_SOFT),
+            cliponaxis=False,
             hovertemplate="<b>%{y}</b><br>%{x} pacientes<extra></extra>",
         )
     )
@@ -464,7 +472,10 @@ def fig_univariada(variable: str, ambito: str = "train") -> go.Figure:
         xaxis_title="Pacientes",
         yaxis_title="",
         yaxis=dict(autorange="reversed"),
-        xaxis=dict(showgrid=True, gridcolor=GRID),
+        # Hueco a la derecha para la cifra de la barra más larga: sin él, el
+        # porcentaje quedaba fuera del área del gráfico y se cortaba ("52,0 ").
+        xaxis=dict(showgrid=True, gridcolor=GRID,
+                   range=[0, float(datos["pacientes"].max()) * 1.18]),
         margin=dict(l=8, r=64, t=20, b=44),
     )
     altura = max(230, 74 + 46 * len(datos))

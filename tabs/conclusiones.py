@@ -180,10 +180,10 @@ def layout() -> html.Div:
                     ),
                     callout(
                         "La señal que encuentran los contrastes coincide con la "
-                        "literatura clínica: IDH1 e IDH2 hacia LGG, y la edad, TP53 y "
-                        "PTEN hacia GBM. Que un análisis hecho a ciegas sobre los datos "
-                        "reproduzca el conocimiento médico establecido es la mejor "
-                        "validación disponible sin una cohorte externa.",
+                        "literatura clínica: IDH1, IDH2, ATRX, CIC y TP53 hacia LGG, y "
+                        "la edad, PTEN y EGFR hacia GBM. Que un análisis hecho a ciegas "
+                        "sobre los datos reproduzca el conocimiento médico establecido "
+                        "es la mejor validación disponible sin una cohorte externa.",
                         titulo="Coherencia con el conocimiento clínico",
                     ),
                 ],
