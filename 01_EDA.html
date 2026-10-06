@@ -442,7 +442,7 @@ document.write(`
   <section class="tex2jax_ignore mathjax_ignore" id="analisis-exploratorio-de-variables-clinicas-y-mutacionales-asociadas-a-la-clasificacion-histologica-lgg-vs-gbm">
 <h1>1. Análisis exploratorio de variables clínicas y mutacionales asociadas a la clasificación histológica (LGG vs. GBM)<a class="headerlink" href="#analisis-exploratorio-de-variables-clinicas-y-mutacionales-asociadas-a-la-clasificacion-histologica-lgg-vs-gbm" title="Link to this heading">#</a></h1>
 <p>El presente análisis exploratorio busca caracterizar las diferencias clínicas y moleculares entre los pacientes con Gliomas de Bajo Grado (LGG) y Glioblastoma Multiforme (GBM), con especial atención a las variables que puedan estar asociadas con el grado histológico del tumor. Para ello, se examinan tanto características clínicas como patrones de mutación en genes seleccionados, con el propósito de identificar comportamientos relevantes dentro de los datos antes de avanzar hacia las etapas de preprocesamiento y modelado.</p>
-<p>El análisis parte del conjunto de datos <strong>Glioma Grading Clinical and Mutation Features</strong>, construido a partir de información de los proyectos TCGA-LGG y TCGA-GBM de <em>The Cancer Genome Atlas</em>. El conjunto contiene registros de pacientes y variables clínicas y genéticas, teniendo como variable objetivo la clasificación binaria del grado tumoral entre LGG y GBM.</p>
+<p>El análisis parte del conjunto de datos Glioma Grading Clinical and Mutation Features, construido a partir de información de los proyectos TCGA-LGG y TCGA-GBM de <em>The Cancer Genome Atlas</em>. El conjunto contiene registros de pacientes y variables clínicas y genéticas, teniendo como variable objetivo la clasificación binaria del grado tumoral entre LGG y GBM.</p>
 <p>A lo largo de esta sección se estudiará la estructura general de los datos, la distribución de las variables, sus características clínicas y mutacionales y su comportamiento en función del grado tumoral. Estos resultados permitirán establecer una primera comprensión del conjunto de datos y servirán como base para definir posteriormente las transformaciones y variables utilizadas en el desarrollo del modelo predictivo.</p>
 <section id="carga-de-datos-y-estructura">
 <h2>1.1 Carga de datos y Estructura<a class="headerlink" href="#carga-de-datos-y-estructura" title="Link to this heading">#</a></h2>
@@ -1265,7 +1265,7 @@ Valores faltantes: 0
 </table>
 </div></div></div>
 </div>
-<p>El conjunto de datos presenta una estructura limpia y estructurada, compuesta por <strong>839 registros</strong> (pacientes) y <strong>24 variables</strong>, sin presencia de valores nulos o faltantes. Aunque se presente un registro duplicado, este representa a dos pacientes distintos que casualmente comparten el mismo fenotipo y perfil genético, ya que su ID es distinto en el dataset original (<code class="docutils literal notranslate"><span class="pre">TCGA_GBM_LGG_Mutations_all</span></code>).</p>
+<p>El conjunto de datos presenta una estructura limpia y estructurada, compuesta por 839 registros (pacientes) y 24 variables, sin presencia de valores nulos o faltantes. Aunque se presente un registro duplicado, este representa a dos pacientes distintos que casualmente comparten el mismo fenotipo y perfil genético, ya que su ID es distinto en el dataset original (<code class="docutils literal notranslate"><span class="pre">TCGA_GBM_LGG_Mutations_all</span></code>).</p>
 <p>Las variables binarias, originalmente codificadas mediante valores enteros <code class="docutils literal notranslate"><span class="pre">0</span></code> y <code class="docutils literal notranslate"><span class="pre">1</span></code>, fueron transformadas al tipo categórico (<code class="docutils literal notranslate"><span class="pre">category</span></code>) para representar adecuadamente su naturaleza y facilitar su análisis exploratorio.</p>
 </section>
 </section>
@@ -1315,8 +1315,8 @@ Valores faltantes: 0
 <h3>Variables genéticas<a class="headerlink" href="#variables-geneticas" title="Link to this heading">#</a></h3>
 <p>El conjunto de datos también contiene variables correspondientes a
 diferentes genes. Estas variables están codificadas de forma binaria,
-indicando con un valor de <strong>1</strong> la presencia de una mutación en el gen
-correspondiente, y con un <strong>0</strong> la condición de gen salvaje / no mutado (<em>wildtype</em>):</p>
+indicando con un valor de 1 la presencia de una mutación en el gen
+correspondiente, y con un 0 la condición de gen salvaje / no mutado (<em>wildtype</em>):</p>
 <ul class="simple">
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">IDH1</span></code></strong>: Codifica una enzima involucrada en el metabolismo celular.</p></li>
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">TP53</span></code></strong>: Gen supresor tumoral que participa en el control del ciclo celular y en la respuesta al daño del ADN. Sus alteraciones favorecen la proliferación tumoral.</p></li>
@@ -1356,7 +1356,7 @@ crecimiento y proliferación celular.</p></li>
 <li><p><strong>1 atributo categórico politómico:</strong> <code class="docutils literal notranslate"><span class="pre">Race</span></code> (codificada en 4 niveles).</p></li>
 <li><p><strong>1 atributo continuo:</strong> <code class="docutils literal notranslate"><span class="pre">Age_at_diagnosis</span></code> (<code class="docutils literal notranslate"><span class="pre">float64</span></code>, expresada en años).</p></li>
 </ul>
-<p>El objetivo a resolver es predecir la severidad del glioma en pacientes, clasificándolos entre Glioma de Bajo Grado (<strong>LGG</strong>) y Glioblastoma Multiforme (<strong>GBM</strong>) a partir de sus características clínicas y perfil de mutaciones genéticas.</p>
+<p>El objetivo a resolver es predecir la severidad del glioma en pacientes, clasificándolos entre Glioma de Bajo Grado (LGG) y Glioblastoma Multiforme (GBM) a partir de sus características clínicas y perfil de mutaciones genéticas.</p>
 </section>
 </section>
 <section id="division-del-dataset-protocolo-anti-leakage">
@@ -1820,7 +1820,7 @@ crecimiento y proliferación celular.</p></li>
   </tbody>
 </table></div></div>
 </div>
-<p>La distribución por género muestra un ligero predominio de hombres, correspondientes a la categoría <code class="docutils literal notranslate"><span class="pre">0</span></code>, con 398 registros <strong>(59,31 %)</strong>. Por su parte, las mujeres, representadas por la categoría <code class="docutils literal notranslate"><span class="pre">1</span></code>, corresponden a 273 registros <strong>(40,69 %)</strong>.</p>
+<p>La distribución por género muestra un ligero predominio de hombres, correspondientes a la categoría <code class="docutils literal notranslate"><span class="pre">0</span></code>, con 398 registros (59,31 %). Por su parte, las mujeres, representadas por la categoría <code class="docutils literal notranslate"><span class="pre">1</span></code>, corresponden a 273 registros (40,69 %).</p>
 </section>
 <section id="race">
 <h4><code class="docutils literal notranslate"><span class="pre">Race</span></code><a class="headerlink" href="#race" title="Link to this heading">#</a></h4>
@@ -1932,7 +1932,7 @@ crecimiento y proliferación celular.</p></li>
   </tbody>
 </table></div></div>
 </div>
-<p>En cuanto a la variable <code class="docutils literal notranslate"><span class="pre">Race</span></code>, se observa una marcada concentración de los registros en la categoría White, que representa 611 casos <strong>(91,06 %)</strong> del conjunto analizado. La categoría Black or African American cuenta con 46 registros <strong>(6,86 %)</strong>, mientras que Asian representa 13 casos <strong>(1,94 %)</strong>. Finalmente, American Indian or Alaska Native presenta únicamente 1 registro <strong>(0,15 %)</strong>.</p>
+<p>En cuanto a la variable <code class="docutils literal notranslate"><span class="pre">Race</span></code>, se observa una marcada concentración de los registros en la categoría White, que representa 611 casos (91,06 %) del conjunto analizado. La categoría Black or African American cuenta con 46 registros (6,86 %), mientras que Asian representa 13 casos (1,94 %). Finalmente, American Indian or Alaska Native presenta únicamente 1 registro (0,15 %).</p>
 <p>La distribución evidencia un fuerte desbalance en la variable racial, dado que la categoría de personas de raza blanca concentra más de nueve de cada diez observaciones. Por tanto, las categorías minoritarias tienen una representación considerablemente menor dentro del conjunto de datos.</p>
 </section>
 <section id="id1">
@@ -3041,7 +3041,7 @@ crecimiento y proliferación celular.</p></li>
 </div></div>
 </div>
 <p>Las variables genéticas presentan una distribución predominantemente concentrada en la categoría <code class="docutils literal notranslate"><span class="pre">0</span></code>, correspondiente a la ausencia de mutación, mientras que la categoría <code class="docutils literal notranslate"><span class="pre">1</span></code> representa su presencia.</p>
-<p>Entre los genes analizados, IDH1 presenta la mayor proporción de casos con mutación, con 322 registros <strong>(47,99 %)</strong>, seguido de TP53, con 270 registros <strong>(40,24 %)</strong>. A continuación se encuentran ATRX con <strong>25,63 %</strong>, PTEN con <strong>16,84 %</strong>, CIC con <strong>13,71 %</strong>, EGFR con <strong>11,62 %</strong> y MUC16 con <strong>11,03 %</strong>. En un nivel intermedio se encuentran PIK3CA (8,49 %), NF1 (8,35 %) y FUBP1 (6,26 %), mientras que PIK3R1 (5,81 %), RB1 (4,92 %) y NOTCH1 (4,92 %) presentan proporciones inferiores al 6 %. Finalmente, genes como CSMD3 (3,43 %), SMARCA4 (3,43 %), IDH2 (3,13 %), BCOR (3,28 %), GRIN2A (2,83 %), FAT4 (2,68 %) y PDGFRA (2,68 %) muestran una presencia de mutaciones relativamente baja en el conjunto analizado.</p>
+<p>Entre los genes analizados, IDH1 presenta la mayor proporción de casos con mutación, con 322 registros (47,99 %), seguido de TP53, con 270 registros (40,24 %). A continuación se encuentran ATRX con 25,63 %, PTEN con 16,84 %, CIC con 13,71 %, EGFR con 11,62 % y MUC16 con 11,03 %. En un nivel intermedio se encuentran PIK3CA (8,49 %), NF1 (8,35 %) y FUBP1 (6,26 %), mientras que PIK3R1 (5,81 %), RB1 (4,92 %) y NOTCH1 (4,92 %) presentan proporciones inferiores al 6 %. Finalmente, genes como CSMD3 (3,43 %), SMARCA4 (3,43 %), IDH2 (3,13 %), BCOR (3,28 %), GRIN2A (2,83 %), FAT4 (2,68 %) y PDGFRA (2,68 %) muestran una presencia de mutaciones relativamente baja en el conjunto analizado.</p>
 <p>En términos generales, se observa una alta variabilidad en la frecuencia de las mutaciones entre los genes, con una mayor concentración en IDH1 y TP53 y una presencia considerablemente menor en los genes restantes. Esto evidencia que las alteraciones genéticas no se distribuyen de manera uniforme en la muestra y que algunos genes presentan una representación mutacional mucho mayor que otros.</p>
 </section>
 </section>
@@ -3198,15 +3198,15 @@ crecimiento y proliferación celular.</p></li>
 <p>El análisis bivariado de la edad al diagnóstico (<code class="docutils literal notranslate"><span class="pre">Age_at_diagnosis</span></code>) según el grado del tumor (<code class="docutils literal notranslate"><span class="pre">Grade</span></code>) muestra una clara separación clínico-demográfica entre los Gliomas de Bajo Grado (LGG / Grado 0) y el Glioblastoma Multiforme (GBM / Grado 1).</p>
 <p><strong>Distribución Estadística</strong></p>
 <ul class="simple">
-<li><p><em>Glioma de Bajo Grado (LGG / Grado 0):</em> En la muestra de 389 pacientes, la edad promedio al diagnóstico es de 44,10 ± 13,20 años y la mediana alcanza los 41,89 años. El <strong>50%</strong> central de los pacientes se concentra entre los 33,91 (<span class="math notranslate nohighlight">\(Q_1\)</span>) y 54,27 años (<span class="math notranslate nohighlight">\(Q_3\)</span>), registrando un rango intercuartílico (IQR) de 20,36 años.</p></li>
+<li><p><em>Glioma de Bajo Grado (LGG / Grado 0):</em> En la muestra de 389 pacientes, la edad promedio al diagnóstico es de 44,10 ± 13,20 años y la mediana alcanza los 41,89 años. El 50% central de los pacientes se concentra entre los 33,91 (<span class="math notranslate nohighlight">\(Q_1\)</span>) y 54,27 años (<span class="math notranslate nohighlight">\(Q_3\)</span>), registrando un rango intercuartílico (IQR) de 20,36 años.</p></li>
 <li><p><em>Glioblastoma Multiforme (GBM / Grado 1):</em> En el grupo de 282 pacientes, la media asciende a 60,75 ± 13,45 años, con una mediana de 61,49 años. Su intervalo intercuartílico se ubica entre los 52,75 (<span class="math notranslate nohighlight">\(Q_1\)</span>) y 69,88 años (<span class="math notranslate nohighlight">\(Q_3\)</span>), representando un IQR de 17,13 años.</p></li>
 </ul>
 <p><strong>Separación de Poblaciones y Análisis de Outliers</strong></p>
 <p>Existe una baja superposición en el núcleo de ambas distribuciones. El 75% de los pacientes diagnosticados con LGG tiene 54,27 años o menos, mientras que el 75% de los casos de GBM presenta una edad de diagnóstico igual o superior a 52,75 años. Esto evidencia una diferencia importante en la edad de diagnóstico entre ambos niveles de <code class="docutils literal notranslate"><span class="pre">Grade</span></code>, con una mayor concentración de edades en los pacientes con GBM.</p>
 <p>En el análisis univariado de <code class="docutils literal notranslate"><span class="pre">Age_at_diagnosis</span></code>, considerando la distribución global de todos los pacientes, no se identificaron valores atípicos mediante el criterio del rango intercuartílico (IQR). Sin embargo, al analizar la edad de manera bivariada según <code class="docutils literal notranslate"><span class="pre">Grade</span></code>, sí aparecen observaciones que pueden clasificarse como outliers dentro de los grupos individuales. Esto ocurre porque cada nivel de <code class="docutils literal notranslate"><span class="pre">Grade</span></code> presenta su propia distribución, con diferentes valores de <span class="math notranslate nohighlight">\(Q_1\)</span>, <span class="math notranslate nohighlight">\(Q_3\)</span> e IQR; por lo tanto, una edad que se encuentra dentro del rango esperado de la población total puede resultar extrema cuando se compara únicamente con la distribución de su grupo.</p>
 <ul class="simple">
-<li><p><em>Valores Atípicos en Grado 0:</em> Se identifica un valor atípico superior de <strong>87 años</strong>, que resulta inusual dentro de la distribución de edades de los pacientes con LGG.</p></li>
-<li><p><em>Valores Atípicos en Grado 1:</em> El grupo GBM presenta valores atípicos inferiores entre <strong>21,73 y 25,20 años</strong>, correspondientes a edades considerablemente menores que las habituales dentro de este grupo y que representan casos poco frecuentes de glioblastoma en adultos jóvenes.</p></li>
+<li><p><em>Valores Atípicos en Grado 0:</em> Se identifica un valor atípico superior de 87 años, que resulta inusual dentro de la distribución de edades de los pacientes con LGG.</p></li>
+<li><p><em>Valores Atípicos en Grado 1:</em> El grupo GBM presenta valores atípicos inferiores entre 21,73 y 25,20 años, correspondientes a edades considerablemente menores que las habituales dentro de este grupo y que representan casos poco frecuentes de glioblastoma en adultos jóvenes.</p></li>
 </ul>
 <section id="prueba-u-de-mannwhitney">
 <h4>Prueba U de Mann–Whitney<a class="headerlink" href="#prueba-u-de-mannwhitney" title="Link to this heading">#</a></h4>
@@ -3246,7 +3246,7 @@ p-value: 0.0000
 </div>
 </div>
 </div>
-<p>El resultado obtenido fue un estadístico U de <strong>21042,5</strong> y un <strong>p-value &lt; 0,0001</strong>, por lo que, considerando un nivel de significancia de <span class="math notranslate nohighlight">\(\alpha = 0,05\)</span>, se rechaza la hipótesis nula. Esto indica que existe una diferencia estadísticamente significativa en la distribución de la variable entre los grupos LGG y GBM. Por lo tanto, los resultados sugieren que esta variable presenta un comportamiento diferente según el grado del glioma, aunque la prueba por sí sola no permite establecer una relación causal.</p>
+<p>El resultado obtenido fue un estadístico U de 21042,5 y un p-value &lt; 0,0001, por lo que, considerando un nivel de significancia de <span class="math notranslate nohighlight">\(\alpha = 0,05\)</span>, se rechaza la hipótesis nula. Esto indica que existe una diferencia estadísticamente significativa en la distribución de la variable entre los grupos LGG y GBM. Por lo tanto, los resultados sugieren que esta variable presenta un comportamiento diferente según el grado del glioma, aunque la prueba por sí sola no permite establecer una relación causal.</p>
 <div class="cell tag_hide-input docutils container">
 <details class="admonition hide above-input">
 <summary aria-label="Toggle hidden content">
@@ -3450,8 +3450,8 @@ Grados de libertad: 1
 <section id="id2">
 <h4>Prueba de independencia: <span class="math notranslate nohighlight">\(\chi^2\)</span><a class="headerlink" href="#id2" title="Link to this heading">#</a></h4>
 <p>Para realizar la prueba de independencia entre <code class="docutils literal notranslate"><span class="pre">Grade</span></code> y <code class="docutils literal notranslate"><span class="pre">Race</span></code>, se decidió reagrupar las categorías de la variable racial debido a las bajas frecuencias observadas en algunos grupos. En particular, las categorías Asian y American Indian or Alaska Native presentan un número reducido de observaciones, lo que puede generar frecuencias esperadas demasiado bajas y afectar la validez de la prueba estadística.</p>
-<p>Por esta razón, se mantuvo la categoría White, que representa la mayoría de los registros, y se agruparon Black or African American, Asian y American Indian or Alaska Native en una nueva categoría denominada <strong>Other racial groups</strong>.</p>
-<p>De esta manera, la variable <code class="docutils literal notranslate"><span class="pre">Race</span></code> queda conformada por dos categorías: <strong>White</strong> y <strong>Other racial groups</strong>, permitiendo realizar la prueba de independencia con una distribución de frecuencias más adecuada.</p>
+<p>Por esta razón, se mantuvo la categoría White, que representa la mayoría de los registros, y se agruparon Black or African American, Asian y American Indian or Alaska Native en una nueva categoría denominada Other racial groups.</p>
+<p>De esta manera, la variable <code class="docutils literal notranslate"><span class="pre">Race</span></code> queda conformada por dos categorías: White y Other racial groups, permitiendo realizar la prueba de independencia con una distribución de frecuencias más adecuada.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">race_agrupada</span> <span class="o">=</span> <span class="n">train_data</span><span class="p">[</span><span class="s2">"Race"</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">({</span>
@@ -3538,7 +3538,7 @@ Valor p: 0.0048
 </div>
 </div>
 </div>
-<p>Dado que el valor <strong>p = 0,0048</strong> es menor que el nivel de significancia de 0.05, se rechaza la hipótesis nula de independencia. Por lo tanto, existe evidencia estadísticamente significativa de una asociación entre <code class="docutils literal notranslate"><span class="pre">Grade</span></code> y <code class="docutils literal notranslate"><span class="pre">Race</span></code> en el conjunto de datos.</p>
+<p>Dado que el valor p = 0,0048 es menor que el nivel de significancia de 0.05, se rechaza la hipótesis nula de independencia. Por lo tanto, existe evidencia estadísticamente significativa de una asociación entre <code class="docutils literal notranslate"><span class="pre">Grade</span></code> y <code class="docutils literal notranslate"><span class="pre">Race</span></code> en el conjunto de datos.</p>
 <p>Esto indica que la distribución de los pacientes entre LGG (Grade 0) y GBM (Grade 1) presenta diferencias según el grupo racial considerado. Sin embargo, este resultado debe interpretarse con cautela, ya que la variable <code class="docutils literal notranslate"><span class="pre">Race</span></code> fue previamente agrupada en White y Other racial groups debido a las bajas frecuencias de algunas categorías originales.</p>
 <p>Es importante señalar que la prueba de independencia permite identificar una asociación estadística, pero no implica que el grupo racial sea la causa de las diferencias observadas en el grado tumoral.</p>
 </section>
