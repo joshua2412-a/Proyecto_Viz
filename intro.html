@@ -64,7 +64,7 @@
     <link rel="canonical" href="https://joshua2412-a.github.io/Proyecto_Viz/intro.html" />
     <link rel="index" title="Índice" href="genindex.html" />
     <link rel="search" title="Búsqueda" href="search.html" />
-    <link rel="next" title="Análisis exploratorio de variables clínicas y mutacionales asociadas a la clasificación histológica (LGG vs. GBM)" href="01_EDA.html" />
+    <link rel="next" title="1. Análisis exploratorio de variables clínicas y mutacionales asociadas a la clasificación histológica (LGG vs. GBM)" href="01_EDA.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="es"/>
   </head>
@@ -358,7 +358,9 @@ document.write(`
   </button>
 `);
 </script>
-
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
 </div></div>
       
     </div>
@@ -374,6 +376,15 @@ document.write(`
     <div id="print-main-content">
         <div id="jb-print-toc">
             
+            <div>
+                <h2> Contenido </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#objetivo-general">Objetivo general</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#objetivos-especificos">Objetivos específicos</a></li>
+</ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -386,7 +397,7 @@ document.write(`
   <div align="center">
 <section class="tex2jax_ignore mathjax_ignore" id="caracterizacion-clinico-molecular-del-grado-tumoral-en-gliomas">
 <h1>Caracterización Clínico-Molecular del Grado Tumoral en Gliomas<a class="headerlink" href="#caracterizacion-clinico-molecular-del-grado-tumoral-en-gliomas" title="Link to this heading">#</a></h1>
-<p><strong>Optimización del Diagnóstico de Gliomas mediante Ciencia de Datos y Aprendizaje Automático</strong>
+<p><strong>Optimización del Diagnóstico de Gliomas mediante Ciencia de Datos y Visualización de Datos</strong>
 <br></p>
 <p><strong>Autores</strong></p>
 <p>Alejandro Cantillo Escorcia</p>
@@ -396,6 +407,34 @@ document.write(`
 </div>
 <p>Los gliomas representan el tumor cerebral primario más común en adultos y se clasifican principalmente en Gliomas de Bajo Grado (LGG) y Glioblastoma Multiforme (GBM). Si bien los criterios histológicos e imagenológicos tradicionales han sido la base del diagnóstico, la caracterización biomolecular y clínica se ha vuelto imprescindible para determinar el pronóstico y el tratamiento idóneo. Sin embargo, las pruebas de secuenciación genética completa suponen un coste económico elevado para los sistemas de salud y los pacientes.</p>
 <p>Este proyecto aborda este desafío analítico y médico mediante la integración de Análisis Exploratorio de Datos (EDA), aprendizaje automático y visualización interactiva. Utilizando datos recopilados de los proyectos TCGA-LGG y TCGA-GBM de <em>The Cancer Genome Atlas</em>, el objetivo central es construir una solución analítica integral que identifique el subconjunto óptimo de factores clínicos y mutaciones genéticas para clasificar con precisión la severidad del glioma, reduciendo los costos asociados a pruebas moleculares innecesarias.</p>
+<section id="objetivo-general">
+<h2>Objetivo general<a class="headerlink" href="#objetivo-general" title="Link to this heading">#</a></h2>
+<p>Construir una solución analítica integral que permita identificar el subconjunto óptimo de factores clínicos y mutaciones genéticas para clasificar con precisión la severidad del glioma (LGG frente a GBM), buscando reducir la necesidad de pruebas moleculares innecesarias.</p>
+<p>El énfasis está en identificar las variables que aportan mayor información para la clasificación del grado tumoral, en lugar de incorporar la mayor cantidad posible de características. De esta manera, el análisis busca determinar cuáles de las variables disponibles presentan una asociación relevante con el grado del tumor y cuáles pueden ser descartadas sin perder capacidad discriminativa.</p>
+<p>La fase de modelado, orientada a traducir estos hallazgos en un clasificador predictivo, corresponde a una etapa posterior y queda fuera del alcance de esta entrega.</p>
+</section>
+<section id="objetivos-especificos">
+<h2>Objetivos específicos<a class="headerlink" href="#objetivos-especificos" title="Link to this heading">#</a></h2>
+<ol class="arabic">
+<li><p><strong>Caracterizar la cohorte</strong></p>
+<p>Describir el perfil clínico y mutacional de los pacientes, considerando variables como edad, género, grupo racial y estado de mutación de los genes disponibles, además de evaluar la calidad de los datos mediante la identificación de valores faltantes, valores atípicos y características de sus distribuciones.</p>
+</li>
+<li><p><strong>Reservar un conjunto de prueba antes del análisis</strong></p>
+<p>Separar el 20 % de los pacientes mediante una partición estratificada antes de realizar el análisis exploratorio, de modo que las decisiones tomadas durante el proceso no estén influenciadas por los datos destinados a la evaluación final.</p>
+</li>
+<li><p><strong>Medir la asociación de cada variable con el grado tumoral</strong></p>
+<p>Contrastar cada predictor con el grado tumoral mediante pruebas estadísticas adecuadas a su naturaleza. Para las variables numéricas se empleará la prueba de Mann-Whitney y, para las variables binarias y categóricas, la prueba de Chi-cuadrado y la V de Cramér, con el propósito de ordenar las variables según su capacidad discriminativa.</p>
+</li>
+<li><p><strong>Descartar redundancia entre marcadores</strong></p>
+<p>Evaluar la coocurrencia entre las mutaciones genéticas para detectar posibles relaciones o redundancias entre marcadores y determinar si el conjunto de variables retenido puede incorporarse posteriormente a un modelo sin generar problemas de multicolinealidad.</p>
+</li>
+<li><p><strong>Delimitar el panel de variables relevante</strong></p>
+<p>Identificar las variables que presentan una asociación significativa con el grado tumoral y distinguirlas de aquellas que aportan poca o ninguna evidencia de relación, con el objetivo de determinar un conjunto reducido de características relevantes para la clasificación.</p>
+</li>
+<li><p><strong>Poner el análisis a disposición de otros usuarios</strong></p>
+<p>Presentar los resultados del análisis exploratorio mediante un Jupyter Book y recursos de visualización interactiva que permitan consultar y explorar los principales hallazgos sin necesidad de acceder directamente al código.</p>
+</li>
+</ol>
 <p><strong>Ficha Técnica del Dataset</strong></p>
 <ul class="simple">
 <li><p><strong>Nombre:</strong> Glioma Grading Clinical and Mutation Features</p></li>
@@ -418,6 +457,7 @@ dataset en <code class="docutils literal notranslate"><span class="pre">dataset/
 <li class="toctree-l1"><a class="reference internal" href="01_EDA.html">Análisis Exploratorio de Datos (EDA)</a></li>
 </ul>
 </div>
+</section>
 </section>
 
     <script type="text/x-thebe-config">
@@ -455,7 +495,7 @@ dataset en <code class="docutils literal notranslate"><span class="pre">dataset/
        title="siguiente página">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">siguiente</p>
-        <p class="prev-next-title">Análisis exploratorio de variables clínicas y mutacionales asociadas a la clasificación histológica (LGG vs. GBM)</p>
+        <p class="prev-next-title">1. Análisis exploratorio de variables clínicas y mutacionales asociadas a la clasificación histológica (LGG vs. GBM)</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -466,6 +506,22 @@ dataset en <code class="docutils literal notranslate"><span class="pre">dataset/
             
             
               
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contenido
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#objetivo-general">Objetivo general</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#objetivos-especificos">Objetivos específicos</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
             
           </div>
           <footer class="bd-footer-content">
@@ -475,7 +531,7 @@ dataset en <code class="docutils literal notranslate"><span class="pre">dataset/
   <div class="footer-item">
     
 <p class="component-author">
-Por Joshua Hincapie LLorente y Alejandro Cantillo Escorcia
+Por Alejandro Cantillo Escorcia y Joshua Hincapie LLorente
 </p>
 
   </div>
