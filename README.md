@@ -26,13 +26,16 @@ Proyecto_Viz/
 ├── Dockerfile              # Imagen del contenedor (Cloud Run)
 ├── .dockerignore           # Qué NO entra en la imagen
 ├── app.yaml                # Despliegue alternativo en App Engine
+├── .gcloudignore           # Qué NO se sube a App Engine
 ├── requirements.txt        # Dependencias del dashboard
 ├── dataset/
 │   ├── README.md           # Cómo obtener el CSV y esquema esperado
-│   └── TCGA_InfoWithGrade.csv   # ← única copia de los datos (no versionada por defecto)
+│   └── TCGA_InfoWithGrade.csv   # ← única copia de los datos (versionada: la imagen la necesita)
 ├── utils/
 │   ├── config.py           # Rutas, esquema TCGA, etiquetas, umbrales, enlaces
+│   ├── navegacion.py       # Orden, nombres y agrupación de las pestañas
 │   ├── theme.py            # Paleta validada y plantilla de Plotly
+│   ├── formato.py          # Cifras y enumeraciones en español (coma decimal)
 │   ├── data_loader.py      # Carga del dataset + estadística descriptiva
 │   ├── figures.py          # Constructores de todas las figuras
 │   └── components.py       # Componentes de interfaz reutilizables
@@ -41,7 +44,11 @@ Proyecto_Viz/
 │   ├── contexto.py         ├── metodologia.py     ├── conclusiones.py
 │   ├── problema.py         ├── resultados.py      └── documentacion.py
 │   ├── objetivos.py
-├── assets/style.css        # Estilos (Dash los carga automáticamente)
+├── assets/                 # Dash carga solo todo lo que hay aquí
+│   ├── style.css           # Estilos
+│   ├── indice.js           # Cierre del índice desplegable (al elegir, Escape, clic fuera)
+│   ├── contador.js         # Animación de las cifras de los indicadores
+│   └── portada.svg         # Ilustración de la portada
 ├── jbook/                  # Fuente del Jupyter Book
 │   ├── _config.yml         ├── intro.md           ├── 01_EDA.ipynb
 │   ├── _toc.yml            ├── requirements.txt   └── logo.png
@@ -215,10 +222,6 @@ python scripts/publicar_libro.py --forzar-ejecucion
 Por defecto `_config.yml` usa `execute_notebooks: "off"`: publica las salidas ya
 guardadas en los `.ipynb`, lo que hace el build rápido y sin dependencias
 científicas. `--forzar-ejecucion` recalcula todo y necesita el dataset.
-
-> `01_EDA.ipynb` todavía guarda un `datos_modelado.pkl` con las particiones, que
-> servía de puente hacia el notebook de modelado. Ya nadie lo lee: esa celda se
-> puede quitar cuando se retoque el notebook.
 
 ---
 
