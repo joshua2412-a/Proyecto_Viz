@@ -1,11 +1,12 @@
 # Caracterización Clínico-Molecular del Grado Tumoral en Gliomas
 
 Proyecto de visualización y analítica de datos sobre los proyectos **TCGA-LGG** y
-**TCGA-GBM** de *The Cancer Genome Atlas*. Clasifica el grado de un glioma
-—glioma de bajo grado (**LGG**) frente a glioblastoma multiforme (**GBM**)— a
-partir de la edad al diagnóstico, el perfil demográfico y 20 mutaciones
-genéticas, con el objetivo de identificar el subconjunto mínimo de marcadores
-que hace falta secuenciar.
+**TCGA-GBM** de *The Cancer Genome Atlas*. Analiza qué separa el grado de un
+glioma —glioma de bajo grado (**LGG**) frente a glioblastoma multiforme
+(**GBM**)— a partir de la edad al diagnóstico, el perfil demográfico y 20
+mutaciones genéticas, con el objetivo de identificar el subconjunto mínimo de
+marcadores que hace falta secuenciar. Esta entrega cubre el análisis
+exploratorio; el modelado de un clasificador queda fuera de su alcance.
 
 El proyecto se entrega en dos piezas que comparten una única copia de los datos:
 
@@ -40,10 +41,10 @@ Proyecto_Viz/
 │   ├── figures.py          # Constructores de todas las figuras
 │   └── components.py       # Componentes de interfaz reutilizables
 ├── tabs/                   # Una pestaña por archivo, cada una con su layout()
-│   ├── introduccion.py     ├── marco_teorico.py   ├── limitaciones.py
-│   ├── contexto.py         ├── metodologia.py     ├── conclusiones.py
-│   ├── problema.py         ├── resultados.py      └── documentacion.py
-│   ├── objetivos.py
+│   ├── introduccion.py     ├── marco_teorico.py   ├── resultados.py
+│   ├── contexto.py         ├── metodologia.py     ├── limitaciones.py
+│   ├── problema.py         ├── exploracion.py     ├── conclusiones.py
+│   ├── objetivos.py                               └── documentacion.py
 ├── assets/                 # Dash carga solo todo lo que hay aquí
 │   ├── style.css           # Estilos
 │   ├── indice.js           # Cierre del índice desplegable (al elegir, Escape, clic fuera)
@@ -96,7 +97,7 @@ pip install -r requirements.txt
 ### Anaconda PowerShell (el entorno del proyecto)
 
 ```powershell
-# Python 3.12 para igualar el runtime de App Engine (python312 en app.yaml)
+# Python 3.12, la misma versión del contenedor (Dockerfile) y de App Engine
 conda create -n gliomas python=3.12 -y
 conda activate gliomas
 
@@ -194,10 +195,11 @@ mirado antes los datos de prueba.
 | **Objetivos** | Objetivo general, seis específicos y criterios de cumplimiento comprobados en vivo contra los datos |
 | **Marco teórico** | Operacionalización de variables, significancia frente a tamaño del efecto, V de Cramér, Spearman y panel de genes |
 | **Metodología** | Seis etapas, correspondencia entre tipo de dato y contraste, y las cinco pruebas aplicadas |
+| **Exploración** | Módulo interactivo: se elige una de las 23 variables y el conjunto de datos (entrenamiento, prueba o completo). La vista univariada muestra su distribución, sus descriptivos y su ficha; la bivariada la compara con el grado y aplica su prueba, siempre sobre entrenamiento |
 | **Resultados** | Sobre el conjunto de entrenamiento: distribución del grado, edad, variables clínicas, prevalencia de mutaciones, asociación con el grado, matriz de correlaciones y multicolinealidad (VIF) |
 | **Limitaciones** | Ocho fronteras del trabajo, con la tabla de representatividad de la cohorte |
 | **Conclusiones** | Hallazgos con su evidencia, siguientes pasos y entregables |
-| **Documentación** | Enlaces al Jupyter Book capítulo a capítulo y vista embebida |
+| **Documentación** | Enlaces al Jupyter Book y al repositorio, arquitectura del proyecto, cómo compilar el libro, vista embebida y autores |
 
 ---
 
@@ -306,9 +308,10 @@ el libro con `python scripts/publicar_libro.py`.
 
 ## 10. Reproducibilidad
 
-- Semilla fija (`RANDOM_STATE = 42`) en `utils/config.py`, compartida por el
-  dashboard y los notebooks: la partición 80/20 es exactamente la misma en las
-  dos piezas.
+- Semilla fija: `RANDOM_STATE = 42` en `utils/config.py` para el dashboard y
+  `random_state=42` en `01_EDA.ipynb`. Con el mismo valor, la misma estratificación
+  y el mismo CSV, la partición 80/20 es exactamente la misma en las dos piezas.
+  Si se cambia la semilla, hay que cambiarla en los dos sitios.
 - `scikit-learn` se usa solo para `train_test_split`. La cota `<1.8` de
   `requirements.txt` venía del pipeline de modelado y hoy ya no hace falta, pero
   se mantiene para no cambiar el entorno a mitad del proyecto.
