@@ -229,14 +229,46 @@ def prevalencia_genes(ambito: str = "train") -> pd.DataFrame:
     return pd.DataFrame(filas).sort_values("prevalencia", ascending=False)
 
 
-def _cramer_v(tabla: np.ndarray) -> tuple[float, float]:
-    """V de Cramér y p-valor de chi-cuadrado para una tabla de contingencia."""
-    chi2, p_valor, _, _ = stats.chi2_contingency(tabla)
+def _cramer_v(tabla: np.ndarray) -> float:
+    """V de Cramér de una tabla de contingencia, como la calcula el libro.
+
+    Dos detalles que cambian el tercer decimal y conviene no improvisar:
+
+    - El chi-cuadrado va SIN la corrección de continuidad de Yates. Yates se
+      aplica al contraste, no al tamaño del efecto: encoge el estadístico para
+      ser conservador con el p-valor, y arrastrar ese encogimiento a la V
+      subestima la asociación. El p-valor sí la lleva, y se calcula aparte.
+    - La V lleva la corrección de sesgo de Bergsma, que descuenta la parte del
+      estadístico que se explica solo por el número de casillas. En tablas
+      pequeñas y asociaciones débiles la diferencia es visible: GRIN2A pasa de
+      0,110 a 0,102.
+    """
+    chi2, _, _, _ = stats.chi2_contingency(tabla, correction=False)
     n = tabla.sum()
-    grados = min(tabla.shape[0] - 1, tabla.shape[1] - 1)
-    if n == 0 or grados == 0:
-        return 0.0, 1.0
-    return float(np.sqrt(chi2 / (n * grados))), float(p_valor)
+    filas, columnas = tabla.shape
+    if n <= 1:
+        return 0.0
+    phi2 = chi2 / n
+    phi2_corr = max(0.0, phi2 - ((columnas - 1) * (filas - 1)) / (n - 1))
+    filas_corr = filas - ((filas - 1) ** 2) / (n - 1)
+    columnas_corr = columnas - ((columnas - 1) ** 2) / (n - 1)
+    denominador = min(columnas_corr - 1, filas_corr - 1)
+    if denominador <= 0:
+        return 0.0
+    return float(np.sqrt(phi2_corr / denominador))
+
+
+def _q_benjamini_hochberg(p_valores: np.ndarray) -> np.ndarray:
+    """p-valores ajustados por Benjamini-Hochberg, en el orden de entrada."""
+    p = np.asarray(p_valores, dtype=float)
+    orden = p.argsort()
+    total = len(p)
+    escalados = p[orden] * total / np.arange(1, total + 1)
+    # El ajuste es monótono: un q no puede ser mayor que el del p siguiente.
+    acumulado = np.minimum.accumulate(escalados[::-1])[::-1]
+    salida = np.empty(total)
+    salida[orden] = np.minimum(acumulado, 1.0)
+    return salida
 
 
 def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
@@ -245,25 +277,26 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
     Reproduce el criterio del notebook (jbook/01_EDA.ipynb):
 
     - `rho`: Spearman con `Grade`, que es lo que aporta el signo (negativo
-      empuja hacia LGG, positivo hacia GBM). En `Race` queda vacío a
-      propósito: el libro la excluye de la matriz de Spearman
-      (`cols_spearman = [c for c in train_data.columns if c != 'Race']`)
-      porque ordenar cuatro grupos nominales es arbitrario.
+      empuja hacia LGG, positivo hacia GBM). `Race` entra por su versión
+      reagrupada (White frente al resto), que es la que el libro correlaciona
+      como `Race_binary`: con cuatro niveles sin orden el coeficiente no
+      significaría nada, pero con dos sí.
     - `p_valor` y `v_cramer`: prueba de independencia sobre la tabla de
       contingencia. Chi-cuadrado, o Fisher exacto si la tabla es 2x2 y alguna
       frecuencia esperada baja de 5, igual que la función
       `prueba_independencia` del notebook. `Race` entra reagrupada en «White»
       y «Other racial groups».
-    - `magnitud`: el número que decide si hay señal. |ρ| donde el orden
-      existe, y V de Cramér donde no, que es el caso de `Race`.
+    - `magnitud`: el número que decide si hay señal, |ρ| en todas las
+      predictoras, porque todas tienen orden una vez `Race` se reagrupa.
     """
     df = get_dataframe(ambito)
     filas = []
 
     for variable in [*NUMERIC_FEATURES, *CATEGORICAL_FEATURES, *GENE_FEATURES]:
-        nominal = variable == "Race"
-        rho_bruto, _ = stats.spearmanr(df[variable], df[TARGET])
-        rho = float("nan") if nominal else float(rho_bruto)
+        # `Race` se correlaciona reagrupada, igual que en el libro.
+        serie_orden = (df["Race"] != 0).astype(int) if variable == "Race" else df[variable]
+        rho_bruto, _ = stats.spearmanr(serie_orden, df[TARGET])
+        rho = float(rho_bruto)
 
         if variable in NUMERIC_FEATURES:
             # La misma prueba que usa el libro y que reporta prueba_bivariada:
@@ -278,7 +311,7 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
         else:
             tabla = pd.crosstab(serie_para_prueba(variable, ambito), df[TARGET])
             _, p_chi2, _, esperadas = stats.chi2_contingency(tabla.values)
-            v_cramer = _cramer_v(tabla.values)[0]
+            v_cramer = _cramer_v(tabla.values)
             if tabla.values.shape == (2, 2) and bool((esperadas < 5).any()):
                 _, p_variable = stats.fisher_exact(tabla.values)
                 prueba = "Fisher exacto"
@@ -287,7 +320,7 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
                 prueba = "Chi-cuadrado"
             tipo = "Clínica categórica" if variable in CATEGORICAL_FEATURES else "Mutación"
 
-        magnitud = float(v_cramer) if nominal else abs(rho)
+        magnitud = abs(rho)
 
         filas.append(
             {
@@ -304,17 +337,17 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
 
     tabla = pd.DataFrame(filas)
 
-    # Corrección de Bonferroni. Se contrastan todas las predictoras contra el
-    # mismo objetivo, así que con 23 pruebas a alfa = 0,05 cabe esperar algo
-    # más de un falso positivo solo por azar. El umbral corregido reparte el
-    # alfa entre los contrastes; es conservador, y por eso se muestra al lado
-    # del veredicto normal en vez de sustituirlo.
-    tabla["alfa_bonferroni"] = ALFA / len(tabla)
-    tabla["significativa_bonferroni"] = (
-        tabla["p_valor"] < tabla["alfa_bonferroni"]
-    ) & (tabla["magnitud"] >= EFECTO_MINIMO)
+    # Corrección por contrastes múltiples, la misma que el libro: se controla
+    # la tasa de falsos descubrimientos (Benjamini-Hochberg) y no la familiar.
+    # El cribado busca candidatas para un modelo posterior, así que descartar
+    # una buena cuesta más que dejar pasar una dudosa, que el modelo filtrará.
+    # La familia son los 23 contrastes, la edad incluida.
+    tabla["q_valor"] = _q_benjamini_hochberg(tabla["p_valor"].to_numpy())
+    tabla["sobrevive_bh"] = tabla["q_valor"] < ALFA
 
-    # Las nominales no tienen |ρ| con el que ordenarse, así que van al final.
+    # na_position es una red de seguridad: hoy todas las predictoras tienen ρ
+    # porque la racial se reagrupa, pero si alguna dejara de tenerlo iría al
+    # final en vez de encabezar el ranking por accidente.
     return tabla.sort_values(
         "rho", key=np.abs, ascending=False, na_position="last"
     ).reset_index(drop=True)
@@ -323,17 +356,20 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
 def matriz_spearman(ambito: str = "train") -> pd.DataFrame:
     """Matriz de correlación de Spearman entre el grado y las predictoras.
 
-    Reproduce la del notebook: `Grade` más las 22 predictoras con orden, es
-    decir todas menos `Race`, que queda fuera porque es nominal y correlacionar
-    cuatro categorías sin orden no significa nada
-    (`cols_spearman = [c for c in train_data.columns if c != 'Race']`).
+    Reproduce la del notebook, incluida la forma en que trata el grupo racial:
+    la variable de cuatro niveles queda fuera —ordenar cuatro categorías sin
+    orden no significa nada— y en su lugar entra la versión reagrupada en White
+    frente al resto, que al ser binaria sí admite correlación de rangos
+    (`Race_binary` en el libro). Son 24 variables: el grado y 23 predictoras.
 
-    El orden de filas y columnas es el del dataset, igual que en el libro, para
-    que las dos matrices se puedan poner una al lado de la otra. La primera
-    fila es la correlación de cada variable con el grado.
+    El orden de filas y columnas es el del dataset, con la racial al final,
+    igual que en el libro. La primera fila es la correlación con el grado.
     """
-    columnas = [TARGET, *NUMERIC_FEATURES, "Gender", *GENE_FEATURES]
-    return get_dataframe(ambito)[columnas].corr(method="spearman")
+    df = get_dataframe(ambito)
+    columnas = [TARGET, "Gender", *NUMERIC_FEATURES, *GENE_FEATURES]
+    matriz = df[columnas].copy()
+    matriz["Race (binaria)"] = (df["Race"] != 0).astype(int)
+    return matriz.corr(method="spearman")
 
 
 def vif_predictoras(ambito: str = "train") -> pd.DataFrame:
@@ -396,7 +432,7 @@ def matriz_asociacion_genes(ambito: str = "train", top_n: int = 12) -> pd.DataFr
     for i, gen_a in enumerate(genes):
         for gen_b in genes[i + 1:]:
             tabla = pd.crosstab(df[gen_a], df[gen_b]).values
-            valor = _cramer_v(tabla)[0] if tabla.shape == (2, 2) else 0.0
+            valor = _cramer_v(tabla) if tabla.shape == (2, 2) else 0.0
             matriz.loc[gen_a, gen_b] = valor
             matriz.loc[gen_b, gen_a] = valor
     return matriz
@@ -620,17 +656,17 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
         Fisher en su lugar, que no depende de esa aproximación.
       - `Race` entra reagrupada en dos categorías (ver serie_para_prueba).
 
-    El signo de Spearman da la dirección, pero solo donde significa algo. En
-    `Race` no se reporta: el notebook la excluye de la matriz de Spearman
-    precisamente porque ordenar grupos nominales es arbitrario.
+    El signo de Spearman da la dirección. En `Race` se calcula sobre la versión
+    reagrupada, que es lo que el libro correlaciona como `Race_binary`: con
+    cuatro categorías sin orden el coeficiente sería arbitrario, con dos no.
 
-    Por el mismo motivo la magnitud que decide si hay señal cambia con el tipo:
-    |ρ| en lo continuo y lo binario, donde el orden existe, y V de Cramér en lo
-    nominal, donde no.
+    La magnitud que decide si hay señal es |ρ| en todas las variables, porque
+    todas tienen orden una vez la racial se reagrupa.
     """
     df = get_dataframe(ambito)
     tipo = tipo_variable(variable)
-    rho, _ = stats.spearmanr(df[variable], df[TARGET])
+    serie_orden = (df["Race"] != 0).astype(int) if variable == "Race" else df[variable]
+    rho, _ = stats.spearmanr(serie_orden, df[TARGET])
     rho = float(rho)
 
     if tipo == TIPO_NUMERICA:
@@ -664,8 +700,12 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
 
     serie = serie_para_prueba(variable, ambito)
     tabla = pd.crosstab(serie, df[TARGET])
-    chi2, p_chi2, gl, esperadas = stats.chi2_contingency(tabla.values)
-    v_cramer = _cramer_v(tabla.values)[0]
+    # El p-valor lleva la corrección de continuidad y el estadístico que se
+    # enseña no, igual que la tabla del libro: Yates es un ajuste del
+    # contraste, no del tamaño del efecto.
+    _, p_chi2, gl, esperadas = stats.chi2_contingency(tabla.values)
+    chi2, _, _, _ = stats.chi2_contingency(tabla.values, correction=False)
+    v_cramer = _cramer_v(tabla.values)
 
     # Misma regla que el notebook: en una 2x2 con frecuencias esperadas bajas,
     # la aproximación chi-cuadrado no vale y se usa la prueba exacta.
@@ -689,14 +729,14 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
         ("Frecuencia esperada mínima", num(float(esperadas.min()), 1)),
         ("Tamaño del efecto", f"V de Cramér = {num(v_cramer, 3)}"),
     ]
-    if tipo == TIPO_BINARIA:
-        detalle.append(("Dirección", f"ρ de Spearman = {num(rho, 3, signo=True)}"))
-    else:
-        detalle.append(("Dirección", "no aplica: la variable es nominal y ordenar "
-                                     "sus categorías sería arbitrario"))
+    detalle.append((
+        "Dirección",
+        f"ρ de Spearman = {num(rho, 3, signo=True)}"
+        + (" (sobre la versión reagrupada)" if variable == "Race" else ""),
+    ))
 
-    magnitud = abs(rho) if tipo == TIPO_BINARIA else float(v_cramer)
-    magnitud_nombre = "|ρ| de Spearman" if tipo == TIPO_BINARIA else "V de Cramér"
+    magnitud = abs(rho)
+    magnitud_nombre = "|ρ| de Spearman"
 
     nota_metodo = ""
     if variable == "Race":
@@ -725,7 +765,7 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
         "significativa": bool(p_prueba < ALFA and magnitud >= EFECTO_MINIMO),
         "detalle": detalle,
         "direccion": "LGG" if rho < 0 else "GBM",
-        "hay_direccion": tipo == TIPO_BINARIA,
+        "hay_direccion": True,
         "nota_metodo": nota_metodo,
     }
 
@@ -981,12 +1021,13 @@ def lectura_asociacion(ambito: str = "train") -> list[str]:
         "muda puede aportar acompañada de otras. Quién sobra de verdad lo decide "
         "un modelo, no esta tabla.",
 
-        f"Con {len(asociacion)} contrastes contra el mismo objetivo, algo de "
-        "significancia aparece por azar. Bajo la corrección de Bonferroni "
-        f"(umbral {num(ALFA / len(asociacion), 5)}) sobreviven "
-        f"{int(asociacion['significativa_bonferroni'].sum())} de las "
-        f"{len(con_senal)}; las que caen son las que rozaban el umbral, no las "
-        "asociaciones fuertes.",
+        f"Son {len(asociacion)} contrastes contra el mismo objetivo, así que "
+        "algo de significancia podría aparecer por azar. Corrigiendo por ello "
+        "con Benjamini-Hochberg, que controla la proporción de falsos "
+        f"descubrimientos, sobreviven {int(asociacion['sobrevive_bh'].sum())} "
+        f"de las {int((asociacion['p_valor'] < ALFA).sum())} que ya pasaban sin "
+        "corregir: el panel no depende de ese ajuste. El libro aplica la misma "
+        "corrección.",
     ]
 
 
@@ -1015,9 +1056,10 @@ def lectura_correlaciones(ambito: str = "train") -> list[str]:
         "valor absoluto. El panel es mayoritariamente de variables que aportan "
         "información distinta.",
 
-        "El grupo racial no está en la matriz: es nominal, y correlacionar "
-        "cuatro categorías sin orden no significa nada. El libro la excluye "
-        "por lo mismo.",
+        "El grupo racial entra reagrupado en dos niveles, White frente al "
+        "resto. Con sus cuatro categorías originales quedaría fuera, porque "
+        "correlacionar grupos sin orden no significa nada; con dos, el "
+        "coeficiente vuelve a tener sentido. El libro hace lo mismo.",
     ]
 
 

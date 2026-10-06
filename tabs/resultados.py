@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import dash_bootstrap_components as dbc
 import numpy as np
-import pandas as pd
 from dash import html
 
 from utils.formato import num, pct
@@ -36,6 +35,7 @@ from utils.data_loader import (
     lectura_correlaciones,
     lectura_genes,
     lectura_multicolinealidad,
+    matriz_asociacion_genes,
     estadisticas_edad,
     prevalencia_genes,
     proporcion_grado,
@@ -95,18 +95,17 @@ def _kpis() -> list[dict]:
 def _tabla_asociacion(ambito: str) -> dbc.Table:
     """Las diez variables más asociadas al grado, con su prueba estadística.
 
-    A las diez primeras por |ρ| se les añaden las nominales, que no tienen ρ
-    con el que ordenarse y si no se quedarían fuera de la tabla sin aparecer
-    en ningún otro sitio de esta pestaña.
+    Las diez primeras por |ρ|. El grupo racial ya no necesita trato aparte: el
+    libro lo correlaciona reagrupado en dos niveles, así que tiene ρ como el
+    resto y aparece en el gráfico de barras con signo, que llega hasta la
+    decimocuarta.
     """
-    todas = asociacion_con_grado(ambito)
-    con_signo = todas[todas["rho"].notna()].head(10)
-    nominales = todas[todas["rho"].isna()]
-    datos = pd.concat([con_signo, nominales])
+    datos = asociacion_con_grado(ambito).head(10)
     filas = []
     for _, fila in datos.iterrows():
         v_cramer = "—" if np.isnan(fila["v_cramer"]) else f"{num(fila['v_cramer'], 3)}"
         p_valor = "< 0,0001" if fila["p_valor"] < 0.0001 else f"{num(fila['p_valor'], 4)}"
+        q_valor = "< 0,0001" if fila["q_valor"] < 0.0001 else f"{num(fila['q_valor'], 4)}"
         filas.append(
             [
                 fila["variable"],
@@ -114,13 +113,13 @@ def _tabla_asociacion(ambito: str) -> dbc.Table:
                 f"{num(fila['rho'], 3, signo=True)}",
                 v_cramer,
                 p_valor,
-                "Sí" if fila["significativa_bonferroni"] else "No",
+                q_valor,
                 "—" if np.isnan(fila["rho"]) else ("LGG" if fila["rho"] < 0 else "GBM"),
             ]
         )
     return data_table(
         ["Variable", "Prueba", "Spearman r", "V de Cramér", "p-valor",
-         "Aguanta Bonferroni", "Empuja hacia"],
+         "q (BH)", "Empuja hacia"],
         filas,
     )
 
@@ -244,8 +243,8 @@ def _bloque_eda(ambito: str) -> html.Div:
                             "Asociación de cada variable con el grado",
                             "Signo negativo = empuja hacia LGG. Las barras rayadas no "
                             "alcanzan significancia estadística (p ≥ 0,05 o |r| < 0,10). "
-                            "El grupo racial no aparece: es nominal y no tiene signo, "
-                            "así que su asociación va por V de Cramér en la tabla.",
+                            "El grupo racial aparece reagrupado en dos niveles, que es "
+                            "como el libro lo correlaciona.",
                         ),
                         lg=7,
                         className="mb-4",
@@ -264,8 +263,7 @@ def _bloque_eda(ambito: str) -> html.Div:
                 _tabla_asociacion(ambito),
                 titulo="Las variables más asociadas al grado",
                 subtitulo=f"{AMBITO_NOMBRES[ambito].capitalize()} · las diez de mayor "
-                          "|ρ|, más el grupo racial, que es nominal y va por V de "
-                          "Cramér",
+                          "|ρ|",
                 className="mb-4",
             ),
             section_title("Correlación entre todas las variables"),
@@ -274,10 +272,10 @@ def _bloque_eda(ambito: str) -> html.Div:
                     dbc.Col(
                         graph_card(
                             fig_matriz_spearman(ambito),
-                            "Matriz de Spearman del grado y las 22 predictoras con orden",
+                            "Matriz de Spearman del grado y las 23 predictoras",
                             "Solo el triángulo inferior: el superior es su reflejo. El "
-                            "grupo racial queda fuera por ser nominal, igual que en el "
-                            "libro.",
+                            "grupo racial entra reagrupado en dos niveles, igual que en "
+                            "el libro.",
                         ),
                         lg=8,
                         className="mb-4",
@@ -316,15 +314,16 @@ def _bloque_eda(ambito: str) -> html.Div:
                                 ),
                                 bullet_list(
                                     [
-                                        "ATRX-TP53 es la co-ocurrencia más fuerte "
-                                        "(V ≈ 0,54): el eje clásico de co-mutación en la "
-                                        "astrocitogénesis.",
-                                        "FUBP1-CIC (V ≈ 0,46) y ATRX-IDH1 (V ≈ 0,46) "
+                                        f"ATRX-TP53 es la co-ocurrencia más fuerte "
+                                        f"(V = {_v_par(ambito, 'ATRX', 'TP53')}): el eje "
+                                        "clásico de co-mutación en la astrocitogénesis.",
+                                        f"FUBP1-CIC (V = {_v_par(ambito, 'FUBP1', 'CIC')}) "
+                                        f"y ATRX-IDH1 (V = {_v_par(ambito, 'ATRX', 'IDH1')}) "
                                         "reafirman las firmas del linaje oligodendroglial y "
                                         "de los gliomas de bajo grado.",
-                                        "PTEN-IDH1 (V ≈ 0,40) refleja exclusión mutua: "
-                                        "IDH1 mutado caracteriza LGG, PTEN alterado "
-                                        "caracteriza GBM.",
+                                        f"PTEN-IDH1 (V = {_v_par(ambito, 'PTEN', 'IDH1')}) "
+                                        "refleja exclusión mutua: IDH1 mutado caracteriza "
+                                        "LGG, PTEN alterado caracteriza GBM.",
                                     ],
                                 ),
                                 callout(
@@ -346,6 +345,14 @@ def _bloque_eda(ambito: str) -> html.Div:
                 ]
             ),
             section_title("Multicolinealidad completa: factor de inflación de la varianza"),
+            callout(
+                "Las dos figuras de arriba miran pares, y la multicolinealidad no "
+                "es un fenómeno por pares: una variable puede ser casi predecible "
+                "a partir de una combinación de otras sin parecerse a ninguna por "
+                "separado. El VIF responde a esa pregunta, y es el mismo cálculo "
+                "que cierra la sección de multicolinealidad del libro.",
+                titulo="Por qué no basta con mirar pares",
+            ),
             dbc.Row(
                 [
                     dbc.Col(
@@ -370,6 +377,17 @@ def _bloque_eda(ambito: str) -> html.Div:
             ),
         ]
     )
+
+
+def _v_par(ambito: str, gen_a: str, gen_b: str) -> str:
+    """V de Cramér de un par de genes, leída de la misma matriz que el mapa.
+
+    Se calcula en vez de escribirse a mano porque ya nos pasó: al alinear la
+    V con la del libro (sin corrección de Yates) las cifras se movieron en el
+    segundo decimal y el texto se quedó diciendo las de antes.
+    """
+    matriz = matriz_asociacion_genes(ambito)
+    return num(float(matriz.loc[gen_a, gen_b]), 2)
 
 
 def _tabla_vif(ambito: str) -> dbc.Table:

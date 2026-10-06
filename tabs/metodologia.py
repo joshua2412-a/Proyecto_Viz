@@ -173,9 +173,10 @@ def _tabla_variables() -> dbc.Table:
             [
                 "Clínicas categóricas",
                 ", ".join(CATEGORICAL_FEATURES),
-                "Chi-cuadrado + V de Cramér",
-                "Race tiene cuatro niveles sin orden natural; Gender es binaria. "
-                "Interesa si la composición cambia entre grados.",
+                "Chi-cuadrado + V de Cramér + Spearman",
+                "Gender es binaria. Race tiene cuatro niveles sin orden natural, "
+                "así que para contrastarla se reagrupa en dos (White frente al "
+                "resto) y así admite también dirección.",
             ],
             [
                 "Mutacionales",

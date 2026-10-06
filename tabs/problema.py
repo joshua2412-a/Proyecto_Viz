@@ -20,10 +20,17 @@ from utils.components import (
     section_title,
 )
 from utils.data_loader import asociacion_con_grado
+from utils.formato import num
 from utils.figures import fig_prevalencia_genes
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 AMBITO = "train"
+
+
+def _v_de(variable: str) -> str:
+    """V de Cramér de una predictora, calculada en vez de escrita a mano."""
+    tabla = asociacion_con_grado(AMBITO).set_index("variable")
+    return num(float(tabla.loc[variable, "v_cramer"]), 2)
 
 
 def _tabla_señal() -> dbc.Table:
@@ -132,8 +139,8 @@ def layout() -> html.Div:
                             "prácticamente una firma de glioma de bajo grado.",
                             "La edad al diagnóstico es el principal correlato clínico "
                             "directo con la severidad (r ≈ +0,53).",
-                            "PTEN es el marcador de riesgo genómico más sólido "
-                            "(V de Cramér ≈ 0,36), seguido de EGFR y RB1.",
+                            f"PTEN es el marcador de riesgo genómico más sólido "
+                            f"(V de Cramér = {_v_de('PTEN')}), seguido de EGFR y RB1.",
                             "Gender, PDGFRA, NF1, CSMD3, BCOR, PIK3CA y FAT4 no muestran "
                             "asociación apreciable con el grado en esta muestra.",
                         ],

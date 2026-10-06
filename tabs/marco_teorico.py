@@ -103,13 +103,14 @@ def _tabla_variables() -> dbc.Table:
                 "Gender",
                 "Binaria",
                 " · ".join(f"{clave} = {valor}" for clave, valor in GENDER_LABELS.items()),
-                "Predictora · chi-cuadrado y V de Cramér",
+                "Predictora · chi-cuadrado, V de Cramér y Spearman",
             ],
             [
                 "Race",
                 "Categórica (4 niveles)",
                 " · ".join(f"{clave} = {valor}" for clave, valor in RACE_LABELS.items()),
-                "Predictora · chi-cuadrado (categorías agrupadas)",
+                "Predictora · chi-cuadrado, V de Cramér y Spearman sobre la "
+                "versión agrupada en dos niveles",
             ],
             [
                 f"{len(GENE_FEATURES)} genes",

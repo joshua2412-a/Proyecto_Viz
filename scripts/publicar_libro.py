@@ -50,6 +50,37 @@ def ejecutar(comando: list[str], cwd: Path | None = None) -> None:
         sys.exit(f"\n[error] Falló: {' '.join(comando)}")
 
 
+def reejecutar_notebooks() -> None:
+    """Ejecuta los notebooks y guarda sus salidas dentro del propio .ipynb.
+
+    Hace falta hacerlo aquí y no delegarlo en el build: el libro se compila con
+    `execute_notebooks: "off"`, así que Jupyter Book publica las salidas que el
+    .ipynb ya trae y no ejecuta nada. Si una celda se edita y no se vuelve a
+    ejecutar, el libro publica el código nuevo con el resultado viejo, o sin
+    resultado, que es justo lo que este flag debería evitar.
+    """
+    try:
+        import nbformat
+        from nbclient import NotebookClient
+    except ImportError:
+        sys.exit(
+            "[error] Faltan nbformat y nbclient para reejecutar.\n"
+            "        Vienen con jupyter-book: pip install -r jbook/requirements.txt"
+        )
+
+    for notebook in sorted(LIBRO_DIR.glob("*.ipynb")):
+        print(f"  Ejecutando {notebook.relative_to(BASE_DIR)} ...")
+        libreta = nbformat.read(notebook, as_version=4)
+        NotebookClient(
+            libreta,
+            timeout=900,
+            kernel_name="python3",
+            resources={"metadata": {"path": str(notebook.parent)}},
+            allow_errors=False,
+        ).execute()
+        nbformat.write(libreta, notebook)
+
+
 def compilar(forzar_ejecucion: bool) -> None:
     """Compila el libro con jupyter-book."""
     if shutil.which("jupyter-book") is None:
@@ -58,12 +89,14 @@ def compilar(forzar_ejecucion: bool) -> None:
             "        Instálalo con: pip install -r jbook/requirements.txt"
         )
 
+    if forzar_ejecucion:
+        print("\nReejecutando los notebooks (sus salidas se guardan en el .ipynb)...")
+        reejecutar_notebooks()
+
     print("\n[1/2] Compilando el libro...")
     comando = ["jupyter-book", "build", str(LIBRO_DIR)]
     if forzar_ejecucion:
-        # Recalcula todas las salidas: necesita dataset/TCGA_InfoWithGrade.csv
         comando += ["--all"]
-        ejecutar(["jupyter-book", "config", "sphinx", str(LIBRO_DIR)])
     ejecutar(comando)
 
     if not (BUILD_DIR / "index.html").exists():
@@ -176,7 +209,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--forzar-ejecucion", action="store_true",
-        help="reejecuta los notebooks en vez de usar las salidas guardadas",
+        help="reejecuta los notebooks y guarda sus salidas antes de compilar; "
+             "hace falta siempre que se haya tocado una celda de código",
     )
     argumentos = parser.parse_args()
 

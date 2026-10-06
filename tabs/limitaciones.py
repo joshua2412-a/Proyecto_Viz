@@ -75,12 +75,14 @@ LIMITACIONES = [
         "sobre datos históricos.",
     ),
     (
-        "Contrastes múltiples: cuáles no aguantan la corrección",
-        "Se contrastan 23 variables contra el grado por separado, así que alguna "
-        "significancia aparece por azar. El criterio principal del tablero no "
-        "corrige por ello, pero la tabla de Resultados marca cuáles sobreviven a "
-        "la corrección de Bonferroni, que es conservadora. Las asociaciones "
-        "fuertes no se mueven; las que rozaban el umbral, sí.",
+        "Contrastes múltiples: corregidos, pero un cribado sigue siendo un cribado",
+        "Se contrastan 23 variables contra el grado por separado, así que algún "
+        "p-valor pequeño podría salir por azar. La tabla de Resultados reporta "
+        "el q-valor de Benjamini-Hochberg, que controla la proporción de falsos "
+        "descubrimientos, y ninguna asociación del panel se cae al corregir. Lo "
+        "que la corrección no arregla es la naturaleza del cribado: estas son "
+        "pruebas variable a variable, y la relevancia conjunta solo la decide "
+        "un modelo.",
     ),
 ]
 
