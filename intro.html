@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css?v=8cd3d715" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -186,6 +186,7 @@
         </ul>
         <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="01_EDA.html">Análisis Exploratorio de Datos (EDA)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_Modelado.html">Modelado predictivo del grado tumoral</a></li>
 </ul>
 
     </div>
@@ -411,30 +412,19 @@ document.write(`
 <h2>Objetivo general<a class="headerlink" href="#objetivo-general" title="Link to this heading">#</a></h2>
 <p>Construir una solución analítica integral que permita identificar el subconjunto óptimo de factores clínicos y mutaciones genéticas para clasificar con precisión la severidad del glioma (LGG frente a GBM), buscando reducir la necesidad de pruebas moleculares innecesarias.</p>
 <p>El énfasis está en identificar las variables que aportan mayor información para la clasificación del grado tumoral, en lugar de incorporar la mayor cantidad posible de características. De esta manera, el análisis busca determinar cuáles de las variables disponibles presentan una asociación relevante con el grado del tumor y cuáles pueden ser descartadas sin perder capacidad discriminativa.</p>
-<p>La fase de modelado, orientada a traducir estos hallazgos en un clasificador predictivo, corresponde a una etapa posterior y queda fuera del alcance de esta entrega.</p>
+<p>La fase de modelado traduce estos hallazgos en clasificadores predictivos: regresión logística, Random Forest y XGBoost, combinados con cuatro técnicas de balanceo y cuatro métodos de optimización de hiperparámetros, evaluados con validación cruzada anidada y comparados con pruebas estadísticas formales.</p>
 </section>
 <section id="objetivos-especificos">
 <h2>Objetivos específicos<a class="headerlink" href="#objetivos-especificos" title="Link to this heading">#</a></h2>
-<ol class="arabic">
-<li><p><strong>Caracterizar la cohorte</strong></p>
-<p>Describir el perfil clínico y mutacional de los pacientes, considerando variables como edad, género, grupo racial y estado de mutación de los genes disponibles, además de evaluar la calidad de los datos mediante la identificación de valores faltantes, valores atípicos y características de sus distribuciones.</p>
-</li>
-<li><p><strong>Reservar un conjunto de prueba antes del análisis</strong></p>
-<p>Separar el 20 % de los pacientes mediante una partición estratificada antes de realizar el análisis exploratorio, de modo que las decisiones tomadas durante el proceso no estén influenciadas por los datos destinados a la evaluación final.</p>
-</li>
-<li><p><strong>Medir la asociación de cada variable con el grado tumoral</strong></p>
-<p>Contrastar cada predictor con el grado tumoral mediante pruebas estadísticas adecuadas a su naturaleza. Para las variables numéricas se empleará la prueba de Mann-Whitney y, para las variables binarias y categóricas, la prueba de Chi-cuadrado y la V de Cramér, con el propósito de ordenar las variables según su capacidad discriminativa.</p>
-</li>
-<li><p><strong>Descartar redundancia entre marcadores</strong></p>
-<p>Evaluar la coocurrencia entre las mutaciones genéticas para detectar posibles relaciones o redundancias entre marcadores y determinar si el conjunto de variables retenido puede incorporarse posteriormente a un modelo sin generar problemas de multicolinealidad.</p>
-</li>
-<li><p><strong>Delimitar el panel de variables relevante</strong></p>
-<p>Identificar las variables que presentan una asociación significativa con el grado tumoral y distinguirlas de aquellas que aportan poca o ninguna evidencia de relación, con el objetivo de determinar un conjunto reducido de características relevantes para la clasificación.</p>
-</li>
-<li><p><strong>Poner el análisis a disposición de otros usuarios</strong></p>
-<p>Presentar los resultados del análisis exploratorio mediante un Jupyter Book y recursos de visualización interactiva que permitan consultar y explorar los principales hallazgos sin necesidad de acceder directamente al código.</p>
-</li>
-</ol>
+<ul class="simple">
+<li><p>Describir el perfil clínico y mutacional de los pacientes, considerando variables como edad, género, grupo racial y estado de mutación de los genes disponibles, además de evaluar la calidad de los datos mediante la identificación de valores faltantes, valores atípicos y características de sus distribuciones.</p></li>
+<li><p>Separar el 20 % de los pacientes mediante una partición estratificada antes de realizar el análisis exploratorio, de modo que las decisiones tomadas durante el proceso no estén influenciadas por los datos destinados a la evaluación final.</p></li>
+<li><p>Contrastar cada predictor con el grado tumoral mediante pruebas estadísticas adecuadas a su naturaleza. Para las variables numéricas se empleará la prueba de Mann-Whitney y, para las variables binarias y categóricas, la prueba de Chi-cuadrado y la V de Cramér, con el propósito de ordenar las variables según su capacidad discriminativa.</p></li>
+<li><p>Evaluar la coocurrencia entre las mutaciones genéticas para detectar posibles relaciones o redundancias entre marcadores y determinar si el conjunto de variables retenido puede incorporarse posteriormente a un modelo sin generar problemas de multicolinealidad.</p></li>
+<li><p>Identificar las variables que presentan una asociación significativa con el grado tumoral y distinguirlas de aquellas que aportan poca o ninguna evidencia de relación, con el objetivo de determinar un conjunto reducido de características relevantes para la clasificación.</p></li>
+<li><p>Entrenar regresión logística, Random Forest y XGBoost con validación cruzada anidada, comparar técnicas de balanceo y de optimización de hiperparámetros, evaluar discriminación, calibración e interpretabilidad, y determinar con pruebas estadísticas si las diferencias entre modelos son reales.</p></li>
+<li><p>Presentar los resultados del análisis exploratorio mediante un Jupyter Book y recursos de visualización interactiva que permitan consultar y explorar los principales hallazgos sin necesidad de acceder directamente al código.</p></li>
+</ul>
 <p><strong>Ficha Técnica del Dataset</strong></p>
 <ul class="simple">
 <li><p><strong>Nombre:</strong> Glioma Grading Clinical and Mutation Features</p></li>
@@ -455,6 +445,7 @@ dataset en <code class="docutils literal notranslate"><span class="pre">dataset/
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="01_EDA.html">Análisis Exploratorio de Datos (EDA)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_Modelado.html">Modelado predictivo del grado tumoral</a></li>
 </ul>
 </div>
 </section>
