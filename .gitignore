@@ -30,3 +30,9 @@ datos_modelado.pkl
 .idea/
 .DS_Store
 Thumbs.db
+
+# Resultados del modelado de la ejecución en la nube (copia de consulta: los
+# vigentes son jbook/resultados/ y modelos/) y archivos temporales
+jbook/resultados_nube/
+modelos_nube/
+_tmp_claude/

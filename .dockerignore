@@ -31,3 +31,8 @@ README.md
 
 # Copias de consulta de versiones anteriores (no se despliegan)
 _versiones_guardadas/
+
+# Copias de consulta del modelado de la nube, temporales y notas de trabajo
+modelos_nube/
+_tmp_claude/
+CLAUDE.md
