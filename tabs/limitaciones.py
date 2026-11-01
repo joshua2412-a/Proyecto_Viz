@@ -1,6 +1,7 @@
 """
-Pestaña 9 · Limitaciones
-Qué NO se puede concluir con este trabajo. Se declara de forma explícita para
+Pestaña 11 · Limitaciones
+Qué NO se puede concluir con este trabajo, ni del análisis exploratorio ni de
+los modelos. Se declara de forma explícita para
 que ninguna cifra del tablero se lea con más alcance del que tiene.
 """
 
@@ -50,7 +51,8 @@ LIMITACIONES = [
     ),
     (
         "El análisis describe el grado, no el pronóstico",
-        "La variable objetivo es la clasificación histológica LGG/GBM. Nada de lo "
+        "La variable objetivo es la clasificación histológica LGG/GBM, con el "
+        "criterio anterior a la clasificación de la OMS de 2021. Nada de lo "
         "que se observa aquí habla de supervivencia, de respuesta al tratamiento ni "
         "de progresión: son preguntas distintas que requieren otros datos y otro "
         "diseño.",
@@ -62,17 +64,20 @@ LIMITACIONES = [
         "mutado' pueden tener alteraciones biológicamente distintas.",
     ),
     (
-        "Es un análisis exploratorio, no una capacidad predictiva medida",
-        "Saber que una variable se asocia al grado no dice cuánta precisión "
-        "aportaría en una clasificación real. Esa pregunta pertenece a la fase de "
-        "modelado, que queda fuera del alcance de este trabajo.",
+        "Un AUC medido en casa no es un rendimiento clínico",
+        "Los modelos se evaluaron en pacientes que no vieron al entrenar, pero esos "
+        "pacientes salen de la misma cohorte TCGA que los de entrenamiento. El AUC "
+        "de prueba mide cómo generalizan dentro de esa fuente, no en un hospital "
+        "con otro protocolo de secuenciación.",
     ),
     (
-        "La reducción de costes es una hipótesis, no un resultado clínico",
-        "Que la mayoría de los genes no muestre asociación con el grado sugiere que un "
-        "panel más pequeño bastaría para clasificar el grado. Validar eso exige un "
-        "estudio prospectivo con el panel reducido, no solo un modelo entrenado "
-        "sobre datos históricos.",
+        "El panel reducido es un resultado retrospectivo",
+        "Que un panel reducido (cuatro u ocho variables) rinda casi como las 23 "
+        "se midió sobre datos históricos en los que se secuenció el panel completo. "
+        "Convertirlo en un ahorro real de costes exige un estudio prospectivo en "
+        "el que solo se secuencien esos marcadores. Además, el límite entre cuatro "
+        "y ocho variables es sensible al procedimiento: una ejecución anterior con "
+        "otra versión de XGBoost eligió otro modelo de referencia y señaló cuatro.",
     ),
     (
         "Contrastes múltiples: corregidos, pero un cribado sigue siendo un cribado",
@@ -81,8 +86,8 @@ LIMITACIONES = [
         "el q-valor de Benjamini-Hochberg, que controla la proporción de falsos "
         "descubrimientos, y ninguna asociación del panel se cae al corregir. Lo "
         "que la corrección no arregla es la naturaleza del cribado: estas son "
-        "pruebas variable a variable, y la relevancia conjunta solo la decide "
-        "un modelo.",
+        "pruebas variable a variable, y la relevancia conjunta la miden los "
+        "modelos, no estos contrastes.",
     ),
 ]
 
@@ -120,12 +125,13 @@ def layout() -> html.Div:
                 "Limitaciones",
                 "Ocho fronteras del trabajo, declaradas antes de que alguien las "
                 "encuentre leyendo las cifras con demasiada confianza.",
-                "bi-exclamation-triangle",
+                "warning",
             ),
             callout(
                 f"Todo lo que se afirma aquí se sostiene sobre {tamanos['full']} pacientes "
                 f"de una sola fuente, y los {len(asociacion)} contrastes se calculan "
-                f"sobre los {tamanos['train']} del conjunto de entrenamiento. Es una muestra "
+                f"sobre los {tamanos['train']} del conjunto de entrenamiento; los modelos se "
+                f"prueban en solo {tamanos['full'] - tamanos['train']}. Es una muestra "
                 "suficiente para orientar decisiones de análisis y pequeña para una "
                 "afirmación clínica.",
                 titulo="El tamaño manda",
@@ -156,12 +162,6 @@ def layout() -> html.Div:
                     _tabla_representatividad(),
                 ],
                 titulo="Composición de la cohorte por grupo racial",
-            ),
-            callout(
-                "Un dashboard que estima probabilidades sobre personas tiene que decir con "
-                "la misma claridad qué no sabe. Esa es la función de esta pestaña: no es un "
-                "trámite académico, es parte del resultado.",
-                titulo="Por qué esta pestaña existe",
             ),
         ],
         className="vista-pestana",

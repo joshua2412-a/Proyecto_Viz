@@ -2,7 +2,8 @@
 Carga del dataset y estadística descriptiva.
 
 Este módulo es la ÚNICA puerta de entrada a los datos. El alcance del proyecto
-es el análisis exploratorio: aquí no se entrena ni se carga ningún modelo.
+es el análisis exploratorio: aquí no se entrena ni se carga ningún modelo
+(los modelos del capítulo 2 se leen en utils/modelo.py).
 
 La partición train/test se reconstruye aquí con los mismos parámetros del
 notebook (80/20, estratificada, `random_state=42`), de modo que las cifras del
@@ -15,14 +16,15 @@ aunque diez pestañas lo pidan.
 
 from __future__ import annotations
 
-from functools import lru_cache
+import copy
+from functools import lru_cache, wraps
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 from sklearn.model_selection import train_test_split
 
-from utils.formato import miles, num, p_valor, pct
+from utils.formato import miles, num, p_tex, p_valor, pct, tnum
 from utils.config import (
     CATEGORICAL_FEATURES,
     CLINICA_DESCRIPCION,
@@ -36,6 +38,7 @@ from utils.config import (
     MUTACION_LABELS,
     NUMERIC_FEATURES,
     RACE_LABELS,
+    nombre_corto,
     RACE_AGRUPADA,
     RANDOM_STATE,
     TARGET,
@@ -109,6 +112,31 @@ def _indices_particion() -> dict[str, tuple[int, ...]]:
     }
 
 
+def _memo(funcion):
+    """Calcula una vez por proceso y entrega siempre una copia.
+
+    El dataset no cambia mientras la app está viva, así que una prueba o una
+    matriz calculadas una vez valen para todas las visitas. Antes no se
+    guardaba nada: Resultados pedía la matriz de V de Cramér seis veces al
+    construirse y tardaba entre 5 y 8 segundos en abrir. La copia evita que
+    quien recibe un DataFrame lo modifique y estropee la caché para el resto.
+    """
+    guardada = lru_cache(maxsize=64)(funcion)
+
+    @wraps(funcion)
+    def envoltura(*args, **kwargs):
+        return copy.deepcopy(guardada(*args, **kwargs))
+
+    envoltura.cache_clear = guardada.cache_clear
+    return envoltura
+
+
+@lru_cache(maxsize=4)
+def _dataframe_ambito(ambito: str) -> pd.DataFrame:
+    indices = list(_indices_particion()[ambito])
+    return load_data().loc[indices]
+
+
 def get_dataframe(ambito: str = "train") -> pd.DataFrame:
     """Copia defensiva del dataset en el ámbito pedido.
 
@@ -117,8 +145,7 @@ def get_dataframe(ambito: str = "train") -> pd.DataFrame:
     """
     if ambito not in AMBITOS:
         raise ValueError(f"Ámbito no válido: {ambito!r}. Usa uno de {AMBITOS}.")
-    indices = list(_indices_particion()[ambito])
-    return load_data().loc[indices].copy()
+    return _dataframe_ambito(ambito).copy()
 
 
 def tamanos_particion() -> dict[str, int]:
@@ -205,6 +232,7 @@ def distribucion_clinica(variable: str, ambito: str = "train") -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 # Descriptivos de las mutaciones
 # --------------------------------------------------------------------------- #
+@_memo
 def prevalencia_genes(ambito: str = "train") -> pd.DataFrame:
     """Prevalencia de mutación de cada gen, global y por grado tumoral.
 
@@ -271,6 +299,7 @@ def _q_benjamini_hochberg(p_valores: np.ndarray) -> np.ndarray:
     return salida
 
 
+@_memo
 def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
     """Fuerza y signo de la asociación de cada predictora con el grado.
 
@@ -353,6 +382,7 @@ def asociacion_con_grado(ambito: str = "train") -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+@_memo
 def matriz_spearman(ambito: str = "train") -> pd.DataFrame:
     """Matriz de correlación de Spearman entre el grado y las predictoras.
 
@@ -372,6 +402,7 @@ def matriz_spearman(ambito: str = "train") -> pd.DataFrame:
     return matriz.corr(method="spearman")
 
 
+@_memo
 def vif_predictoras(ambito: str = "train") -> pd.DataFrame:
     """Factor de inflación de la varianza de cada predictora.
 
@@ -419,6 +450,7 @@ def vif_predictoras(ambito: str = "train") -> pd.DataFrame:
     )
 
 
+@_memo
 def matriz_asociacion_genes(ambito: str = "train", top_n: int = 12) -> pd.DataFrame:
     """Matriz de V de Cramér entre los genes más prevalentes (multicolinealidad).
 
@@ -431,7 +463,11 @@ def matriz_asociacion_genes(ambito: str = "train", top_n: int = 12) -> pd.DataFr
     matriz = pd.DataFrame(np.eye(len(genes)), index=genes, columns=genes)
     for i, gen_a in enumerate(genes):
         for gen_b in genes[i + 1:]:
-            tabla = pd.crosstab(df[gen_a], df[gen_b]).values
+            # Conteo directo con numpy: lo mismo que pd.crosstab y unas cien
+            # veces más rápido, que en 66 pares se nota.
+            a, b = df[gen_a].to_numpy(), df[gen_b].to_numpy()
+            tabla = np.array([[np.sum((a == x) & (b == y)) for y in np.unique(b)]
+                              for x in np.unique(a)])
             valor = _cramer_v(tabla) if tabla.shape == (2, 2) else 0.0
             matriz.loc[gen_a, gen_b] = valor
             matriz.loc[gen_b, gen_a] = valor
@@ -643,6 +679,7 @@ def serie_para_prueba(variable: str, ambito: str):
     return df[variable]
 
 
+@_memo
 def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
     """La prueba que corresponde a la variable, con su tamaño del efecto.
 
@@ -677,10 +714,10 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
         detalle = [
             ("Hipótesis nula", "Las dos distribuciones de la variable son iguales "
                                "en LGG y en GBM."),
-            ("Estadístico U", miles(estadistico)),
-            ("Tamaño del efecto", f"ρ de Spearman = {num(rho, 3, signo=True)}"),
+            ("Estadístico $U$", miles(estadistico)),
+            ("Tamaño del efecto", f"$r$ de Spearman $= {tnum(rho, 3, signo=True)}$"),
             ("Medianas", f"LGG {num(lgg.median())} · GBM {num(gbm.median())}"),
-            ("Normalidad (Shapiro-Wilk)", p_valor(p_normalidad)),
+            ("Normalidad (Shapiro-Wilk)", p_tex(p_normalidad)),
         ]
         return {
             "prueba": "U de Mann-Whitney",
@@ -690,7 +727,7 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
             "rho": rho,
             "v_cramer": float("nan"),
             "magnitud": abs(rho),
-            "magnitud_nombre": "|ρ| de Spearman",
+            "magnitud_nombre": r"$|r|$ de Spearman",
             "significativa": bool(p_prueba < ALFA and abs(rho) >= EFECTO_MINIMO),
             "detalle": detalle,
             "direccion": "LGG" if rho < 0 else "GBM",
@@ -725,18 +762,18 @@ def prueba_bivariada(variable: str, ambito: str = "train") -> dict:
 
     detalle = [
         ("Hipótesis nula", "La variable y el grado tumoral son independientes."),
-        ("Estadístico χ²", f"{num(chi2, 2)} con {gl} grado{'s' if gl != 1 else ''} de libertad"),
+        (r"Estadístico $\chi^2$", f"{num(chi2, 2)} con {gl} grado{'s' if gl != 1 else ''} de libertad"),
         ("Frecuencia esperada mínima", num(float(esperadas.min()), 1)),
         ("Tamaño del efecto", f"V de Cramér = {num(v_cramer, 3)}"),
     ]
     detalle.append((
         "Dirección",
-        f"ρ de Spearman = {num(rho, 3, signo=True)}"
+        f"$r$ de Spearman $= {tnum(rho, 3, signo=True)}$"
         + (" (sobre la versión reagrupada)" if variable == "Race" else ""),
     ))
 
     magnitud = abs(rho)
-    magnitud_nombre = "|ρ| de Spearman"
+    magnitud_nombre = r"$|r|$ de Spearman"
 
     nota_metodo = ""
     if variable == "Race":
@@ -857,7 +894,7 @@ def lectura_bivariada(variable: str, ambito: str = "train") -> list[str]:
             f"da por distinguible del azar ({p_valor(prueba['p_valor'])})."
         )
         lineas.append(
-            f"La magnitud de la asociación es ρ = {num(prueba['rho'], 2, signo=True)}, el "
+            f"La magnitud de la asociación es $r = {tnum(prueba['rho'], 2, signo=True)}$, el "
             "correlato clínico más fuerte del panel, aunque no separa los grupos "
             "por sí sola: las dos distribuciones se solapan ampliamente."
         )
@@ -1001,14 +1038,14 @@ def lectura_asociacion(ambito: str = "train") -> list[str]:
     sin_direccion = len(con_senal) - len(con_signo)
 
     return [
-        f"{primera['variable']} encabeza el ranking con ρ = "
-        f"{num(primera['rho'], 2, signo=True)}, de signo "
+        f"{nombre_corto(primera['variable'])} encabeza el ranking con "
+        f"$r = {tnum(primera['rho'], 2, signo=True)}$, de signo "
         + ("negativo, así que empuja hacia LGG."
            if primera["rho"] < 0 else "positivo, así que empuja hacia GBM."),
 
         f"{len(con_senal)} de las {len(asociacion)} predictoras superan a la vez "
-        f"los dos filtros del proyecto (p < {num(ALFA, 2)} y magnitud ≥ "
-        f"{num(EFECTO_MINIMO, 2)}): {hacia_lgg} empujan hacia LGG y {hacia_gbm} "
+        f"los dos filtros del proyecto ($p < {tnum(ALFA, 2)}$ y magnitud "
+        f"$\\geq {tnum(EFECTO_MINIMO, 2)}$): {hacia_lgg} empujan hacia LGG y {hacia_gbm} "
         "hacia GBM"
         + (f", y {sin_direccion} no tiene dirección por ser nominal."
            if sin_direccion == 1
@@ -1047,10 +1084,10 @@ def lectura_correlaciones(ambito: str = "train") -> list[str]:
     return [
         f"La primera fila y la primera columna son lo que importa para el "
         f"objetivo: la correlación de cada variable con el grado. La mayor es "
-        f"{mas_fuerte} con r = {num(con_grado[mas_fuerte], 2, signo=True)}.",
+        f"{nombre_corto(mas_fuerte)} con r = {num(con_grado[mas_fuerte], 2, signo=True)}.",
 
         f"Entre predictoras, la correlación más alta es "
-        f"{nombres[par[0]]} con {nombres[par[1]]} "
+        f"{nombre_corto(nombres[par[0]])} con {nombre_corto(nombres[par[1]])} "
         f"(r = {num(entre[par], 2, signo=True)}), y "
         f"{debiles} de los {total_pares} pares se quedan por debajo de 0,20 en "
         "valor absoluto. El panel es mayoritariamente de variables que aportan "
@@ -1083,14 +1120,14 @@ def lectura_multicolinealidad(ambito: str = "train") -> list[str]:
 
     if sobre_cinco == 0:
         lineas.append(
-            f"El VIF más alto es {num(peor['vif'], 2)}, en {peor['variable']}, muy "
+            f"El VIF más alto es {num(peor['vif'], 2)}, en {nombre_corto(peor['variable'])}, muy "
             "por debajo de 5. Las 23 predictoras pueden entrar juntas en un modelo "
             "sin que sus coeficientes se vuelvan inestables."
         )
     else:
         lineas.append(
             f"{sobre_cinco} predictoras superan un VIF de 5, la más alta "
-            f"{peor['variable']} con {num(peor['vif'], 2)}: ahí sí conviene mirar "
+            f"{nombre_corto(peor['variable'])} con {num(peor['vif'], 2)}: ahí sí conviene mirar "
             "antes de meterlas todas juntas en un modelo lineal."
         )
     return lineas
@@ -1103,3 +1140,7 @@ def clear_caches() -> None:
     """Invalida las cachés (útil tras reemplazar el dataset)."""
     load_data.cache_clear()
     _indices_particion.cache_clear()
+    _dataframe_ambito.cache_clear()
+    for funcion in (prevalencia_genes, asociacion_con_grado, matriz_spearman,
+                    vif_predictoras, matriz_asociacion_genes, prueba_bivariada):
+        funcion.cache_clear()

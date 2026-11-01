@@ -8,12 +8,16 @@ particiones, que es descripción y no inferencia, vive en Exploración.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 import dash_bootstrap_components as dbc
 import numpy as np
 from dash import html
 
 from utils.formato import num, pct
+from utils.config import nombre_corto
 from utils.components import (
+    titular,
     bullet_list,
     lectura_guiada,
     callout,
@@ -108,7 +112,7 @@ def _tabla_asociacion(ambito: str) -> dbc.Table:
         q_valor = "< 0,0001" if fila["q_valor"] < 0.0001 else f"{num(fila['q_valor'], 4)}"
         filas.append(
             [
-                fila["variable"],
+                nombre_corto(fila["variable"]),
                 fila["prueba"],
                 f"{num(fila['rho'], 3, signo=True)}",
                 v_cramer,
@@ -118,12 +122,17 @@ def _tabla_asociacion(ambito: str) -> dbc.Table:
             ]
         )
     return data_table(
-        ["Variable", "Prueba", "Spearman r", "V de Cramér", "p-valor",
+        ["Variable", "Prueba", r"$r$ de Spearman", "V de Cramér", "p-valor",
          "q (BH)", "Empuja hacia"],
         filas,
     )
 
 
+# Se construye una vez por proceso: son una docena de figuras de Plotly sobre
+# datos que no cambian, y rehacerlas en cada visita era lo que más tardaba al
+# abrir la pestaña. Dash serializa los componentes sin modificarlos, así que
+# reutilizar el mismo árbol en todas las visitas es seguro.
+@lru_cache(maxsize=3)
 def _bloque_eda(ambito: str) -> html.Div:
     """Conjunto completo de figuras del EDA para el ámbito seleccionado."""
     prueba_edad = prueba_edad_por_grado(ambito)
@@ -242,7 +251,7 @@ def _bloque_eda(ambito: str) -> html.Div:
                             fig_asociacion_grado(ambito, top_n=14),
                             "Asociación de cada variable con el grado",
                             "Signo negativo = empuja hacia LGG. Las barras rayadas no "
-                            "alcanzan significancia estadística (p ≥ 0,05 o |r| < 0,10). "
+                            r"superan los dos filtros ($p \geq 0{,}05$ o $|r| < 0{,}10$). "
                             "El grupo racial aparece reagrupado en dos niveles, que es "
                             "como el libro lo correlaciona.",
                         ),
@@ -263,7 +272,7 @@ def _bloque_eda(ambito: str) -> html.Div:
                 _tabla_asociacion(ambito),
                 titulo="Las variables más asociadas al grado",
                 subtitulo=f"{AMBITO_NOMBRES[ambito].capitalize()} · las diez de mayor "
-                          "|ρ|",
+                          r"$|r|$",
                 className="mb-4",
             ),
             section_title("Correlación entre todas las variables"),
@@ -349,8 +358,7 @@ def _bloque_eda(ambito: str) -> html.Div:
                 "Las dos figuras de arriba miran pares, y la multicolinealidad no "
                 "es un fenómeno por pares: una variable puede ser casi predecible "
                 "a partir de una combinación de otras sin parecerse a ninguna por "
-                "separado. El VIF responde a esa pregunta, y es el mismo cálculo "
-                "que cierra la sección de multicolinealidad del libro.",
+                "separado. El VIF responde a esa pregunta.",
                 titulo="Por qué no basta con mirar pares",
             ),
             dbc.Row(
@@ -359,7 +367,7 @@ def _bloque_eda(ambito: str) -> html.Div:
                         card(
                             _tabla_vif(ambito),
                             titulo="Las cinco predictoras con más VIF",
-                            subtitulo="VIF = 1 / (1 − R²) de regresar cada predictora "
+                            subtitulo=r"$\mathrm{VIF} = 1/(1 - R^2)$ de regresar cada predictora "
                                       "contra las otras 22",
                         ),
                         lg=7,
@@ -398,10 +406,10 @@ def _tabla_vif(ambito: str) -> dbc.Table:
     """
     datos = vif_predictoras(ambito).head(5)
     return data_table(
-        ["Predictora", "R² contra las demás", "VIF", "Lectura"],
+        ["Predictora", "$R^2$ contra las demás", "VIF", "Lectura"],
         [
             [
-                fila["variable"],
+                nombre_corto(fila["variable"]),
                 num(fila["r2"], 3),
                 num(fila["vif"], 2),
                 "Sin problema" if fila["vif"] < 5
@@ -416,35 +424,24 @@ def layout() -> html.Div:
     """Layout de la pestaña de resultados."""
     return html.Div(
         [
-            page_header(
-                "Resultados",
-                "Qué dicen los datos: distribuciones, contrastes y fuerza de cada "
-                "asociación con el grado tumoral.",
-                "bi-bar-chart-line",
+            titular(
+                "03 Los resultados · Análisis exploratorio",
+                "Qué dicen los datos,",
+                "variable a variable",
+                texto="Distribuciones, contrastes y fuerza de cada asociación con el "
+                      "grado tumoral.",
             ),
             kpi_row(_kpis()),
             section_title("Análisis exploratorio"),
             callout(
                 f"Todo lo que sigue se calcula sobre el conjunto de entrenamiento "
-                f"({tamanos_particion()['train']} pacientes), igual que en el libro. El resto se "
-                "apartó antes de "
-                "mirar nada y aquí no se cruza con el grado: si estas pruebas se "
-                "corrieran también sobre él, la evaluación del modelo que venga después "
-                "dejaría de ser independiente, porque las variables se habrían elegido "
-                "sabiendo lo que ese conjunto decía. Para comprobar que la partición "
-                "quedó repartida de forma parecida, la pestaña Exploración permite "
-                "comparar la distribución de cada variable entre los tres conjuntos, "
-                "sin cruzarla con el grado.",
+                f"({tamanos_particion()['train']} pacientes). El de prueba se apartó antes "
+                "de mirar nada y no se cruza con el grado, para que la evaluación de "
+                "los modelos siga siendo independiente.",
                 titulo="Sobre qué datos está hecho este análisis",
             ),
             html.Div(series_chips(), className="mb-3"),
             _bloque_eda("train"),
-            callout(
-                "El modelado —la traducción de estos hallazgos en un clasificador— es el "
-                "paso natural a partir de aquí, con el conjunto de prueba ya reservado "
-                "para evaluarlo. Queda fuera del alcance de esta entrega.",
-                titulo="Qué viene después",
-            ),
         ],
         className="vista-pestana",
     )

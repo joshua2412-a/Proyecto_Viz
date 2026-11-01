@@ -15,6 +15,12 @@ scipy>=1.10
 scikit-learn>=1.3,<1.8
 joblib>=1.3
 
+# Asistente virtual: cada librería solo se usa si el servidor tiene su clave
+# (GEMINI_API_KEY, la gratuita de Google AI Studio, o ANTHROPIC_API_KEY).
+# Sin clave el asistente funciona igual, con sus respuestas guiadas.
+google-genai>=1.20
+anthropic>=0.40
+
 # Servidor WSGI para despliegue (App Engine usa gunicorn)
 gunicorn>=21.2 ; sys_platform != "win32"
 waitress>=3.0 ; sys_platform == "win32"

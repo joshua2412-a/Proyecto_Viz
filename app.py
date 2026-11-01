@@ -18,6 +18,10 @@ Ejecución:
 
 from __future__ import annotations
 
+import json
+import threading
+from functools import lru_cache
+
 import dash_bootstrap_components as dbc
 from dash import (
     ALL,
@@ -26,13 +30,14 @@ from dash import (
     Output,
     State,
     callback,
-    ctx,
     dcc,
     html,
-    no_update,
 )
 
+from utils import asistente_panel
+from utils.components import icono
 from utils.config import AUTORES, DATA_PATH, URL_LIBRO
+from utils.intro import portada
 from utils.formato import lista_y
 from utils.navegacion import BLOQUES, DESCRIPCIONES, ETIQUETAS, ORDEN
 from utils.theme import BG_PAGE, INK_MUTED, STATUS_CRITICAL
@@ -47,7 +52,9 @@ from tabs import (
     limitaciones,
     marco_teorico,
     metodologia,
+    modelos,
     objetivos,
+    prediccion,
     problema,
     resultados,
 )
@@ -67,12 +74,35 @@ MODULOS = {
     "tab-metodologia": metodologia,
     "tab-exploracion": exploracion,
     "tab-resultados": resultados,
+    "tab-modelos": modelos,
+    "tab-prediccion": prediccion,
     "tab-limitaciones": limitaciones,
     "tab-conclusiones": conclusiones,
     "tab-documentacion": documentacion,
 }
 
-LAYOUTS = {tab_id: modulo.layout for tab_id, modulo in MODULOS.items()}
+# Cada pestaña se construye una sola vez por proceso y se reutiliza: los datos
+# no cambian mientras la app está viva y Dash serializa los componentes sin
+# modificarlos. Antes cada cambio de pestaña rehacía su layout (figuras
+# incluidas) y la transición se quedaba esperando al servidor, que era lo que
+# cortaba la animación de las partículas al pasar a Contexto.
+LAYOUTS = {tab_id: lru_cache(maxsize=1)(modulo.layout) for tab_id, modulo in MODULOS.items()}
+
+
+def _precalentar() -> None:
+    """Construye en segundo plano todas las pestañas al arrancar.
+
+    Quedan en la caché de LAYOUTS, así que la primera visita a cada una ya la
+    encuentra hecha. Va en un hilo aparte para no retrasar el arranque.
+    """
+    for tab_id in ORDEN:
+        try:
+            LAYOUTS[tab_id]()
+        except Exception as error:  # noqa: BLE001 - si falla, la pestaña avisará sola
+            print(f"[setup] No se pudo precalcular {tab_id}: {error}")
+
+
+threading.Thread(target=_precalentar, daemon=True).start()
 TAB_INICIAL = ORDEN[0]
 
 
@@ -97,7 +127,14 @@ comprobar_dataset()
 # --------------------------------------------------------------------------- #
 app = Dash(
     __name__,
-    external_stylesheets=[dbc.themes.FLATLY, dbc.icons.BOOTSTRAP],
+    external_stylesheets=[
+        dbc.themes.FLATLY,
+        "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
+        # Íconos: Material Symbols de Google Fonts (fonts.google.com/icons).
+        # display=block evita que se vea el nombre en texto mientras carga.
+        "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:"
+        "opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block",
+    ],
     # Los callbacks de las pestañas apuntan a componentes que no están en el
     # layout inicial (se montan al abrir la pestaña), así que hay que permitirlo.
     suppress_callback_exceptions=True,
@@ -106,6 +143,37 @@ app = Dash(
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
 )
 server = app.server  # objeto WSGI que gunicorn sirve en el contenedor
+
+# Modo claro u oscuro antes del primer pintado. Dash carga los .js de /assets
+# al final del <body>: si el tema lo pusiera assets/tema.js, la página se
+# vería un instante en claro y luego saltaría a oscuro. Este script mínimo va
+# en el <head> y solo pone el atributo; todo lo demás lo hace tema.js.
+app.index_string = """<!DOCTYPE html>
+<html lang="es">
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        <script>
+            (function () {
+                var guardado = null;
+                try { guardado = localStorage.getItem("tema"); } catch (e) {}
+                var oscuro = guardado ? guardado === "oscuro"
+                    : !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                document.documentElement.setAttribute("data-tema", oscuro ? "oscuro" : "claro");
+            })();
+        </script>
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>"""
 
 
 # --------------------------------------------------------------------------- #
@@ -123,38 +191,63 @@ def barra_superior() -> html.Div:
                                 "Dashboard analítico · TCGA-LGG y TCGA-GBM",
                                 className="brand-eyebrow",
                             ),
+                            # El título lleva a la portada. Es un enlace normal
+                            # (recarga la página): reabrir la portada en caliente
+                            # obligaría a reiniciar su WebGL, la hélice de
+                            # banda.js y la entrada de Glía, y la recarga lo
+                            # deja todo como en la primera visita.
                             html.H1(
-                                "Grado tumoral en gliomas",
+                                html.A(
+                                    "Grado tumoral en gliomas",
+                                    href="/",
+                                    className="brand-title-enlace",
+                                    title="Volver a la portada",
+                                ),
                                 className="brand-title",
                             ),
                             html.Div(
-                                "Análisis exploratorio de la edad, el perfil "
-                                "demográfico y 20 mutaciones genéticas en 839 "
-                                "pacientes de TCGA-LGG y TCGA-GBM",
+                                "Exploración, modelado y predicción del grado "
+                                "tumoral a partir de la edad, el perfil "
+                                "demográfico y 20 mutaciones en 839 pacientes "
+                                "de TCGA-LGG y TCGA-GBM",
                                 className="brand-subtitle",
                             ),
                         ],
                         md=8,
                     ),
                     dbc.Col(
-                        # Solo el enlace al libro. Las etiquetas de Dash, Plotly
-                        # y pandas parecian botones y no llevaban a ningun sitio:
-                        # decoraban la cabecera y restaban peso al unico enlace
-                        # que si hace algo.
-                        html.Div(
+                        # Solo el enlace al libro y el cambio de tema. Las
+                        # etiquetas de Dash, Plotly y pandas parecian botones y
+                        # no llevaban a ningun sitio: decoraban la cabecera y
+                        # restaban peso a lo que si hace algo.
+                        html.Div([
+                            # Claro / oscuro. Los dos iconos están siempre y se
+                            # cruzan con CSS; el texto accesible y el estado
+                            # los pone assets/tema.js.
+                            html.Button(
+                                [
+                                    icono("dark_mode", "tema-icono tema-icono-luna"),
+                                    icono("light_mode", "tema-icono tema-icono-sol"),
+                                ],
+                                id="boton-tema",
+                                className="boton-tema",
+                                type="button",
+                                title="Cambiar entre modo claro y oscuro",
+                                **{"aria-label": "Cambiar entre modo claro y oscuro"},
+                            ),
                             html.A(
                                 [
-                                    html.I(className="bi bi-journal-text me-2"),
+                                    icono("menu_book", "me-2"),
                                     html.Span("Abrir el", className="boton-libro-largo"),
                                     "Jupyter Book",
                                 ],
                                 href=URL_LIBRO,
                                 target="_blank",
                                 rel="noopener noreferrer",
+                                title="Abrir el Jupyter Book",
                                 className="boton-libro",
                             ),
-                            className="tech-pills",
-                        ),
+                        ], className="tech-pills"),
                         md=4,
                         className="d-flex align-items-end justify-content-md-end",
                     ),
@@ -172,7 +265,12 @@ def _panel_indice() -> list[html.Div]:
     """Las pestañas del índice, agrupadas en las mismas etapas que la portada."""
     return [
         html.Div(
-            [html.Div(bloque["titulo"], className="indice-bloque-titulo")]
+            [html.Div(
+                ([html.Span(bloque["numero"], className="indice-bloque-num")]
+                 if bloque["numero"] else [])
+                + [bloque["titulo"]],
+                className="indice-bloque-titulo",
+            )]
             + [
                 html.Button(
                     [
@@ -206,12 +304,12 @@ def _barra_indice() -> html.Div:
                 [
                     html.Summary(
                         [
-                            html.I(className="bi bi-list indice-icono"),
+                            icono("menu", "indice-icono"),
                             html.Span(
                                 id="indice-posicion", className="indice-posicion"
                             ),
                             html.Span(id="indice-actual", className="indice-actual"),
-                            html.I(className="bi bi-chevron-down indice-flecha"),
+                            icono("expand_more", "indice-flecha"),
                         ],
                         className="indice-boton",
                     ),
@@ -241,7 +339,7 @@ def _barra_indice() -> html.Div:
 
 
 def navegacion() -> html.Div:
-    """Navegación: las once pestañas en la portada, el índice en el resto.
+    """Navegación: las trece pestañas en la portada, el índice en el resto.
 
     Las dos piezas están siempre en el DOM y se turnan con una clase que pone
     un callback de cliente. En la introducción se ven las once pestañas, que es
@@ -318,11 +416,23 @@ def pie_pagina() -> html.Div:
 # --------------------------------------------------------------------------- #
 app.layout = html.Div(
     [
+        # Portada animada (assets/intro.js): tapa el tablero hasta pulsar
+        # "Explorar el dashboard".
+        portada(),
         barra_superior(),
         navegacion(),
         dbc.Container(
             dcc.Loading(
                 html.Div(id="contenido-pestana"),
+                # Solo el cambio de pestaña enciende el indicador. Sin esto,
+                # cualquier callback de dentro (marcar un gen en Predicción,
+                # mover un umbral) tapaba la pestaña entera mientras corría y
+                # la página parpadeaba a cada clic.
+                target_components={"contenido-pestana": "children"},
+                # Con las pestañas ya construidas (LAYOUTS en caché) el cambio
+                # tarda poco; el indicador solo sale si de verdad se demora,
+                # para no tapar la pestaña mientras viajan las partículas.
+                delay_show=700,
                 type="dot",
                 color=INK_MUTED,
                 parent_className="loading-wrapper",
@@ -331,9 +441,25 @@ app.layout = html.Div(
             className="page-container",
         ),
         pie_pagina(),
+        # Asistente virtual flotante, presente en todas las pestañas
+        # (utils/asistente_panel.py). Sus almacenes viven aquí y no en una
+        # pestaña para que la conversación no se pierda al navegar.
+        asistente_panel.layout(),
         # Salida muda del callback de scroll: un callback de Dash siempre tiene
         # que escribir en algun sitio, y aqui lo que importa es el efecto.
         dcc.Store(id="ancla-scroll"),
+        # Gráfico invisible: obliga a cargar y arrancar Plotly mientras se ve
+        # la portada. Introducción no tiene gráficos, así que sin esto la
+        # primera carga de Plotly (unos 750 ms con el navegador bloqueado)
+        # caía justo en el viaje de las partículas hacia Contexto clínico.
+        dcc.Graph(
+            id="precarga-plotly",
+            figure={"data": [{"type": "scatter", "x": [0], "y": [0]}],
+                    "layout": {"width": 10, "height": 10, "margin": {"l": 0, "r": 0, "t": 0, "b": 0}}},
+            config={"staticPlot": True, "displayModeBar": False},
+            style={"position": "fixed", "left": "-40px", "top": "0", "width": "10px",
+                   "height": "10px", "opacity": 0, "pointerEvents": "none"},
+        ),
     ],
     className="app-root",
     style={"background": BG_PAGE},
@@ -374,35 +500,43 @@ def mostrar_pestana(tab_activa: str):
 # --------------------------------------------------------------------------- #
 # 7. Navegación desde la guía de la introducción
 # --------------------------------------------------------------------------- #
-@callback(
+# Va en el cliente: cambiar de pestaña es solo escribir `active_tab`, y
+# hacerlo en el servidor añadía un viaje de ida y vuelta (en Cloud Run, unos
+# cientos de milisegundos) antes de que la pestaña nueva empezara a pedirse.
+# Un solo callback atiende a todos los botones gracias al pattern matching:
+# el identificador de cada uno lleva dentro su `tab_id` de destino, que es el
+# mismo de utils/navegacion.py.
+#
+# El guardia del principio es necesario: Dash dispara el callback también
+# cuando los botones se montan (al abrir la introducción), no solo al
+# pulsarlos, y sin él la pestaña saltaría sola.
+app.clientside_callback(
+    """
+    function (clics) {
+        var c = window.dash_clientside.callback_context;
+        var sinCambio = window.dash_clientside.no_update;
+        if (!c.triggered.length || !c.triggered[0].value || !c.triggered_id) return sinCambio;
+        return c.triggered_id.index;
+    }
+    """,
     Output("tabs-principal", "active_tab"),
     Input({"type": "ir-a-pestana", "index": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
-def ir_a_pestana(clics: list[int | None]):
-    """Lleva a la pestaña que anuncia la tarjeta pulsada en la portada.
-
-    Un solo callback atiende a todos los botones gracias al pattern matching:
-    el identificador de cada uno lleva dentro su `tab_id` de destino, que es el
-    mismo de utils/navegacion.py. Añadir una entrada a la guía no obliga a
-    tocar esto.
-
-    El guardia del principio es necesario: Dash dispara el callback también
-    cuando los botones se montan (al abrir la introducción), no solo al
-    pulsarlos, y sin él la pestaña saltaría sola.
-    """
-    if not ctx.triggered_id or not any(clics or []):
-        return no_update
-    return ctx.triggered_id["index"]
 
 
 # Cambiar de pestaña desde el pie de la portada dejaba al usuario a media
 # página, mirando el centro de la pestaña nueva. Esto lo devuelve arriba.
+# Suave solo si estás cerca de arriba: desde el pie de una pestaña larga, el
+# desplazamiento suave recorría miles de píxeles justo mientras se montaba la
+# pestaña nueva (el momento en que el navegador está más ocupado) y se veía
+# a saltos; además, ese contenido se va a sustituir, no hay nada que seguir.
 app.clientside_callback(
     """
     function (pestana) {
         var suave = !(window.matchMedia
-            && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+            && window.scrollY < window.innerHeight * 0.6;
         window.scrollTo({ top: 0, behavior: suave ? 'smooth' : 'auto' });
         return pestana;
     }
@@ -446,7 +580,28 @@ app.clientside_callback(
 # --------------------------------------------------------------------------- #
 # 8. Índice desplegable
 # --------------------------------------------------------------------------- #
-@callback(
+# Los dos callbacks del índice corren en el navegador. En el servidor, pulsar
+# «siguiente» hacía dos viajes seguidos (calcular la pestaña nueva y, después,
+# pedir su contenido) y el «3 de 13», el progreso y los vecinos llegaban con
+# el segundo: medio segundo largo en el que el clic no parecía hacer nada.
+# Ahora la pestaña cambia en el mismo fotograma del clic y solo el contenido
+# sigue viniendo del servidor. El orden y los nombres salen de
+# utils/navegacion.py, igual que antes.
+_NAV_JS = json.dumps({"orden": ORDEN, "etiquetas": ETIQUETAS}, ensure_ascii=False)
+
+app.clientside_callback(
+    """
+    function (_items, _anterior, _siguiente, actual) {
+        var c = window.dash_clientside.callback_context;
+        var sinCambio = window.dash_clientside.no_update;
+        // Al montarse, los botones llegan con n_clicks=0: eso no es un clic
+        if (!c.triggered.length || !c.triggered[0].value || !c.triggered_id) return sinCambio;
+        var orden = NAV.orden, pos = orden.indexOf(actual), id = c.triggered_id;
+        if (id === "indice-anterior") return orden[Math.max(pos - 1, 0)];
+        if (id === "indice-siguiente") return orden[Math.min(pos + 1, orden.length - 1)];
+        return id.index;
+    }
+    """.replace("NAV", _NAV_JS),
     Output("tabs-principal", "active_tab", allow_duplicate=True),
     Input({"type": "indice-item", "index": ALL}, "n_clicks"),
     Input("indice-anterior", "n_clicks"),
@@ -454,24 +609,37 @@ app.clientside_callback(
     State("tabs-principal", "active_tab"),
     prevent_initial_call=True,
 )
-def navegar_con_indice(_items, _anterior, _siguiente, actual: str):
-    """Cambia de pestaña desde el índice o desde anterior/siguiente.
 
-    El guardia mira el valor que disparó el callback y no solo quién lo
-    disparó: al montarse, los botones llegan con n_clicks=0 y eso no es un clic.
+# Rellena el botón del índice, la barra de progreso y los vecinos. Los
+# iconos van como el JSON de `icono()` (un Span de Material Symbols).
+app.clientside_callback(
     """
-    disparo = ctx.triggered_id
-    if not disparo or not ctx.triggered[0]["value"]:
-        return no_update
-    posicion = ORDEN.index(actual)
-    if disparo == "indice-anterior":
-        return ORDEN[max(posicion - 1, 0)]
-    if disparo == "indice-siguiente":
-        return ORDEN[min(posicion + 1, len(ORDEN) - 1)]
-    return disparo["index"]
-
-
-@callback(
+    function (actual) {
+        var orden = NAV.orden, nombres = NAV.etiquetas;
+        var pos = Math.max(0, orden.indexOf(actual)), total = orden.length;
+        function icono(nombre, clase) {
+            return { type: "Span", namespace: "dash_html_components",
+                     props: { children: nombre, className: "material-symbols-rounded " + clase,
+                              "aria-hidden": "true" } };
+        }
+        var anterior = pos > 0 ? nombres[orden[pos - 1]] : "Inicio";
+        var siguiente = pos < total - 1 ? nombres[orden[pos + 1]] : "Fin";
+        var salidas = window.dash_clientside.callback_context.outputs_list;
+        var clases = salidas[salidas.length - 1].map(function (s) {
+            return s.id.index === actual ? "indice-item indice-item-activo" : "indice-item";
+        });
+        return [
+            (pos + 1) + " de " + total,
+            nombres[actual],
+            { width: ((pos + 1) / total * 100).toFixed(1) + "%" },
+            [icono("arrow_back", "me-1"), anterior],
+            pos === 0,
+            [siguiente, icono("arrow_forward", "ms-1")],
+            pos === total - 1,
+            clases
+        ];
+    }
+    """.replace("NAV", _NAV_JS),
     Output("indice-posicion", "children"),
     Output("indice-actual", "children"),
     Output("indice-progreso", "style"),
@@ -482,28 +650,6 @@ def navegar_con_indice(_items, _anterior, _siguiente, actual: str):
     Output({"type": "indice-item", "index": ALL}, "className"),
     Input("tabs-principal", "active_tab"),
 )
-def actualizar_indice(actual: str):
-    """Rellena el botón del índice, la barra de progreso y los vecinos."""
-    posicion = ORDEN.index(actual)
-    total = len(ORDEN)
-    anterior = ETIQUETAS[ORDEN[posicion - 1]] if posicion > 0 else "Inicio"
-    siguiente = ETIQUETAS[ORDEN[posicion + 1]] if posicion < total - 1 else "Fin"
-    clases = [
-        "indice-item indice-item-activo"
-        if salida["id"]["index"] == actual
-        else "indice-item"
-        for salida in ctx.outputs_list[-1]
-    ]
-    return (
-        f"{posicion + 1} de {total}",
-        ETIQUETAS[actual],
-        {"width": f"{(posicion + 1) / total * 100:.1f}%"},
-        [html.I(className="bi bi-arrow-left me-1"), anterior],
-        posicion == 0,
-        [siguiente, html.I(className="bi bi-arrow-right ms-1")],
-        posicion == total - 1,
-        clases,
-    )
 
 
 # --------------------------------------------------------------------------- #

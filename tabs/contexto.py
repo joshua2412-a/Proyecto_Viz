@@ -77,7 +77,7 @@ def layout() -> html.Div:
                 "Contexto clínico: dos tumores con el mismo origen",
                 "Los gliomas nacen de las células gliales, pero LGG y GBM se "
                 "comportan de forma distinta y se diagnostican en edades distintas.",
-                "bi-heart-pulse",
+                "monitor_heart",
             ),
             kpi_row(_kpis()),
             dbc.Row(
@@ -110,7 +110,8 @@ def layout() -> html.Div:
                                                 "rápido, pronóstico corto y necesidad de "
                                                 "tratamiento intensivo inmediato. Se "
                                                 "concentra en edades avanzadas y presenta "
-                                                "alteraciones en PTEN, EGFR o TP53.",
+                                                "con más frecuencia alteraciones en PTEN "
+                                                "y EGFR.",
                                             ]
                                         ),
                                     ],

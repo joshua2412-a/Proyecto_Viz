@@ -1,5 +1,5 @@
 """
-Pestaña 11 · Documentación
+Pestaña 13 · Documentación
 Integra el Jupyter Book del proyecto: lo enlaza capítulo a capítulo y lo
 embebe para poder leerlo sin salir del dashboard.
 
@@ -14,6 +14,7 @@ import dash_bootstrap_components as dbc
 from dash import html
 
 from utils.components import (
+    icono as icono_ms,
     badge_numero,
     bullet_list,
     callout,
@@ -27,26 +28,34 @@ from utils.config import (
     AUTORES,
     URL_LIBRO,
     URL_LIBRO_EDA,
+    URL_LIBRO_MODELADO,
     URL_REPO_LIBRO,
 )
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 CAPITULOS = [
     (
-        "bi-file-earmark-text",
+        "description",
         "Portada e introducción",
         "Planteamiento del problema clínico y ficha técnica del dataset.",
         URL_LIBRO,
     ),
     (
-        "bi-bar-chart-line",
+        "bar_chart",
         "Análisis exploratorio",
         "Univariado, bivariado, pruebas de hipótesis y diagnóstico de "
         "multicolinealidad, con el desarrollo completo de cada prueba.",
         URL_LIBRO_EDA,
     ),
     (
-        "bi-code-slash",
+        "account_tree",
+        "Modelado predictivo",
+        "Las 48 combinaciones, la validación anidada, la evaluación en prueba, la "
+        "interpretabilidad y las pruebas estadísticas entre modelos.",
+        URL_LIBRO_MODELADO,
+    ),
+    (
+        "data_object",
         "Repositorio",
         "Código fuente del libro y del sitio publicado en GitHub Pages.",
         URL_REPO_LIBRO,
@@ -56,8 +65,8 @@ CAPITULOS = [
 
 # Perfiles que puede tener un autor: (clave en AUTORES, etiqueta, icono).
 ENLACES_AUTOR = (
-    ("github", "GitHub", "bi-github"),
-    ("linkedin", "LinkedIn", "bi-linkedin"),
+    ("github", "GitHub", "code"),
+    ("linkedin", "LinkedIn", "badge"),
 )
 
 
@@ -75,7 +84,7 @@ def ficha_autor(autor: dict) -> dbc.Card:
     nombre = autor["nombre"]
     enlaces = [
         html.A(
-            [html.I(className=f"bi {icono}"), html.Span(etiqueta)],
+            [icono_ms(icono), html.Span(etiqueta)],
             href=autor[clave],
             target="_blank",
             rel="noopener noreferrer",
@@ -113,16 +122,16 @@ def layout() -> html.Div:
         [
             page_header(
                 "Documentación del proyecto",
-                "El dashboard cubre el análisis exploratorio; el libro lo demuestra "
-                "paso a paso, con el desarrollo de cada prueba.",
-                "bi-book",
+                "El dashboard resume el análisis exploratorio y el modelado; el libro "
+                "los desarrolla paso a paso, con cada prueba y el código que la produce.",
+                "book",
             ),
             dbc.Row(
                 [
                     dbc.Col(
                         card(
                             [
-                                html.Div(badge_numero(html.I(className=f"bi {icono}")),
+                                html.Div(badge_numero(icono_ms(icono)),
                                          className="guide-badge"),
                                 html.Div(titulo, className="guide-name"),
                                 html.Div(descripcion, className="guide-text"),
@@ -132,7 +141,7 @@ def layout() -> html.Div:
                             ],
                             className="guide-card",
                         ),
-                        lg=4,
+                        lg=3,
                         md=6,
                         xs=12,
                         className="mb-3",
@@ -158,8 +167,8 @@ def layout() -> html.Div:
                                             [
                                                 html.B("dataset/ "),
                                                 "guarda el único CSV. Los notebooks y la "
-                                                "app leen de ahí, así que ninguna cifra "
-                                                "puede desincronizarse.",
+                                                "app leen de ahí, así que parten de los "
+                                                "mismos datos.",
                                             ]
                                         ),
                                         html.Span(
@@ -188,9 +197,10 @@ def layout() -> html.Div:
                                     ],
                                 ),
                                 callout(
-                                    "Si cambia el dataset, basta recompilar: las cifras del "
-                                    "dashboard se recalculan solas y las del libro se "
-                                    "regeneran al compilar con ejecución forzada.",
+                                    "Si cambia el dataset, hay que volver a ejecutar los dos "
+                                    "notebooks, cada uno con su entorno, y exportar los modelos. "
+                                    "Las cifras que calcula el dashboard se actualizan solas; "
+                                    "las que van escritas en los textos hay que revisarlas.",
                                     titulo="Una sola fuente de verdad",
                                 ),
                             ],
@@ -202,22 +212,38 @@ def layout() -> html.Div:
                     dbc.Col(
                         card(
                             [
-                                paragraph("Para trabajar el libro en local:"),
-                                html.Pre(
-                                    "pip install -r jbook/requirements.txt\n"
-                                    "jupyter-book build jbook/\n"
-                                    "# abre jbook/_build/html/index.html\n\n"
-                                    "# compilar y publicar en GitHub Pages:\n"
-                                    "python scripts/publicar_libro.py",
-                                    className="code-block",
-                                ),
+                                # Tres entornos porque sus dependencias chocan; el
+                                # notebook de modelado nunca se ejecuta con el del
+                                # libro (sus resultados salen de otras versiones).
                                 paragraph(
-                                    "Por defecto el libro se compila con las salidas ya "
-                                    "guardadas en los notebooks (rápido y sin dependencias "
-                                    "científicas). Para recalcular todo desde el CSV:"
+                                    "El proyecto usa tres entornos, porque sus "
+                                    "dependencias no son compatibles entre sí:"
+                                ),
+                                bullet_list([
+                                    "Dashboard (requirements.txt): Dash y lo necesario "
+                                    "para servir el tablero.",
+                                    "Libro y EDA (jbook/requirements.txt): Jupyter Book 1.x, "
+                                    "pandas 2 y scikit-learn 1.7.",
+                                    "Modelado (jbook/requirements-modelado.txt): pandas 3, "
+                                    "scikit-learn 1.9, XGBoost, Optuna y DEAP, con las "
+                                    "versiones exactas registradas en "
+                                    "jbook/resultados/entorno.json.",
+                                ]),
+                                paragraph(
+                                    "Cada notebook se ejecuta con su entorno y el libro se "
+                                    "publica con las salidas guardadas. Los dos usan la misma "
+                                    "partición (semilla 42, estratificada 80/20): los 168 "
+                                    "pacientes de prueba son idénticos."
                                 ),
                                 html.Pre(
-                                    "python scripts/publicar_libro.py --forzar-ejecucion",
+                                    "# modelado (entorno gliomas-modelado, desde jbook/)\n"
+                                    "python -m modelado.experimentos\n"
+                                    "jupyter nbconvert --to notebook --execute --inplace "
+                                    "02_Modelado.ipynb\n"
+                                    "python -m modelado.exportar\n\n"
+                                    "# libro (entorno gliomas-libro)\n"
+                                    "jupyter-book build jbook/\n"
+                                    "python scripts/publicar_libro.py",
                                     className="code-block",
                                 ),
                             ],

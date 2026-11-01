@@ -40,24 +40,24 @@ import plotly.io as pio
 # --------------------------------------------------------------------------- #
 # Superficies frías (gris con cast azul)
 # --------------------------------------------------------------------------- #
-BG_PAGE = "#F4F6FA"   # fondo general de la página
+BG_PAGE = "#FFFFFF"   # fondo general de la página
 BG_CARD = "#FFFFFF"   # tarjetas y área de gráficos
-BG_SOFT = "#EDF1F7"   # bloques destacados e insertos (único, ya no hay pasteles)
+BG_SOFT = "#F2F3FA"   # bloques destacados e insertos (único, ya no hay pasteles)
 
 # Cabecera en tinta profunda: marco corporativo sin comprometer el cuerpo
-HEADER_BG = "#0F1E33"
+HEADER_BG = "#141B4D"
 HEADER_INK = "#EEF3F9"
-HEADER_INK_MUTED = "#8FA3BC"
+HEADER_INK_MUTED = "#A9B1DB"
 
 # --------------------------------------------------------------------------- #
 # Tinta y líneas
 # --------------------------------------------------------------------------- #
-INK = "#121C2B"        # títulos y cifras
-INK_SOFT = "#3D4A5D"   # cuerpo de texto
-INK_MUTED = "#647285"  # etiquetas, detalles, ticks
-HAIRLINE = "#DFE6EF"   # bordes de tarjeta y separadores
-GRID = "#E8EDF4"       # rejilla de los gráficos (más clara que el filete)
-AXIS = "#C3CEDC"       # líneas de eje y marcas
+INK = "#121A3A"        # títulos y cifras
+INK_SOFT = "#3B4266"   # cuerpo de texto
+INK_MUTED = "#5D6487"  # etiquetas, detalles, ticks
+HAIRLINE = "#E6E8F2"   # bordes de tarjeta y separadores
+GRID = "#ECEEF6"       # rejilla de los gráficos (más clara que el filete)
+AXIS = "#CDD1E6"       # líneas de eje y marcas
 
 # --------------------------------------------------------------------------- #
 # Color con significado
@@ -67,7 +67,7 @@ COLOR_GBM = "#E0785A"   # glioblastoma multiforme
 
 # Marca de una sola serie: cuando no hay grupos que distinguir, no se usa el
 # color de LGG ni el de GBM, porque ahí no significarían nada.
-COLOR_MARK = "#1E4E86"
+COLOR_MARK = "#141B4D"
 
 SERIES = [COLOR_LGG, COLOR_GBM]
 
@@ -77,7 +77,18 @@ ORDEN_GRADE = ["LGG", "GBM"]
 # Acento de interfaz (azul acero). Es cromo —filetes, indicadores, enlaces—,
 # no un dato: más oscuro y menos saturado que COLOR_LGG para no confundirse
 # con él (ΔE 21,4 entre ambos).
-ACCENT_NEUTRAL = "#1E4E86"
+ACCENT_NEUTRAL = "#141B4D"
+
+# Los tres modelos del capítulo 2. No son grados, así que no llevan azul ni
+# coral: tres tintas neutras de distinta claridad (contraste con el blanco de
+# 8,4 : 1, 5,6 : 1 y 3,5 : 1) que siempre van con un trazo distinto y con su
+# nombre en la leyenda o junto a la marca. El color nunca es la única pista.
+TONOS_MODELO = {
+    "logistica": "#1E4E86",
+    "random_forest": "#52698A",
+    "xgboost": "#7A8BA3",
+}
+TRAZO_MODELO = {"logistica": "solid", "random_forest": "dash", "xgboost": "dot"}
 
 # --------------------------------------------------------------------------- #
 # Rampas
@@ -112,9 +123,9 @@ STATUS_CRITICAL = "#B3261E"
 # --------------------------------------------------------------------------- #
 # Tipografía
 # --------------------------------------------------------------------------- #
-# Pila del sistema a propósito: no hay fuente externa que cargar, así el
-# contenedor de Cloud Run no depende de ninguna CDN para renderizar.
-FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif'
+# Plus Jakarta Sans (Google Fonts, la carga app.py) con la pila del sistema de
+# respaldo: si la fuente no llega, el tablero se lee igual.
+FONT_FAMILY = '"Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
 FONT_MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
 
 # --------------------------------------------------------------------------- #
@@ -128,7 +139,7 @@ SOBRIO_TEMPLATE = go.layout.Template(
         # Coma decimal y punto de millar: sin esto, los ejes y los tooltips
         # escriben "42.0" mientras el texto de las pestañas escribe "42,0".
         separators=",.",
-        font=dict(family=FONT_FAMILY, size=13, color=INK_SOFT),
+        font=dict(family=FONT_FAMILY, size=14, color=INK_SOFT),
         title=dict(font=dict(size=15, color=INK), x=0, xanchor="left"),
         paper_bgcolor=BG_CARD,
         plot_bgcolor=BG_CARD,
@@ -136,7 +147,7 @@ SOBRIO_TEMPLATE = go.layout.Template(
         hoverlabel=dict(
             bgcolor=BG_CARD,
             bordercolor=HAIRLINE,
-            font=dict(family=FONT_FAMILY, size=12, color=INK),
+            font=dict(family=FONT_FAMILY, size=13, color=INK),
         ),
         legend=dict(
             orientation="h",
@@ -146,7 +157,7 @@ SOBRIO_TEMPLATE = go.layout.Template(
             x=1,
             title_text="",
             bgcolor="rgba(0,0,0,0)",
-            font=dict(size=12, color=INK_SOFT),
+            font=dict(size=13, color=INK_SOFT),
         ),
         xaxis=dict(
             showgrid=False,
@@ -156,8 +167,8 @@ SOBRIO_TEMPLATE = go.layout.Template(
             ticks="outside",
             ticklen=4,
             tickcolor=AXIS,
-            tickfont=dict(color=INK_MUTED, size=12),
-            title_font=dict(color=INK_SOFT, size=12),
+            tickfont=dict(color=INK_MUTED, size=13),
+            title_font=dict(color=INK_SOFT, size=13),
             automargin=True,
         ),
         yaxis=dict(
@@ -166,8 +177,8 @@ SOBRIO_TEMPLATE = go.layout.Template(
             zeroline=False,
             linecolor="rgba(0,0,0,0)",
             ticks="",
-            tickfont=dict(color=INK_MUTED, size=12),
-            title_font=dict(color=INK_SOFT, size=12),
+            tickfont=dict(color=INK_MUTED, size=13),
+            title_font=dict(color=INK_SOFT, size=13),
             automargin=True,
         ),
     )

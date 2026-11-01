@@ -23,19 +23,70 @@ from utils.theme import (
 
 
 # --------------------------------------------------------------------------- #
+# Notación matemática
+# --------------------------------------------------------------------------- #
+def tex(texto: str, className: str = "") -> dcc.Markdown:
+    """Texto con fórmulas en LaTeX entre $...$, compuestas con MathJax.
+
+    Antes los símbolos se escribían a mano (|r|, χ², R²) y se veían como texto
+    corriente, no como notación. Ahora cualquier texto del tablero puede llevar
+    LaTeX en línea: `tex("con $|r| \\geq 0{,}10$")`. La coma decimal va entre
+    llaves, `0{,}10`, porque en modo matemático una coma suelta deja un espacio
+    detrás (ver `formato.tnum`).
+    """
+    return dcc.Markdown(texto, mathjax=True, className=f"tex {className}".strip())
+
+
+def con_formulas(contenido):
+    """Pasa por `tex` los textos que llevan $...$ y deja el resto como está.
+
+    Lo usan todas las piezas de este módulo que reciben texto (párrafos,
+    celdas, listas, notas), así que basta con escribir la fórmula en la cadena:
+    la pieza se encarga de componerla.
+    """
+    if isinstance(contenido, str) and "$" in contenido:
+        return tex(contenido)
+    if isinstance(contenido, list):
+        return [con_formulas(parte) for parte in contenido]
+    return contenido
+
+
+# --------------------------------------------------------------------------- #
 # Cabeceras y textos
 # --------------------------------------------------------------------------- #
+def icono(nombre: str, className: str = "") -> html.Span:
+    """Ícono de Material Symbols (Google Fonts), por su nombre: "bar_chart".
+
+    La fuente se carga en app.py. Se escribe el nombre como texto y la
+    ligadura de la fuente lo convierte en el dibujo; aria-hidden porque el
+    ícono siempre acompaña a un texto que ya dice lo mismo.
+    """
+    clases = f"material-symbols-rounded {className}".strip()
+    return html.Span(nombre, className=clases, **{"aria-hidden": "true"})
+
+
+icono_ = icono  # alias: page_header tiene un parámetro llamado icono
+
+
 def page_header(titulo: str, subtitulo: str, icono: str = "") -> html.Div:
     """Cabecera de pestaña: título grande + línea de contexto.
 
-    `icono` es una clase de Bootstrap Icons (p. ej. "bi-bar-chart-line"), que ya
-    viene cargada en app.py. Se usa un set monocromo en vez de emoji para que el
+    `icono` es el nombre de un ícono de Material Symbols (p. ej. "bar_chart"),
+    cuya fuente carga app.py. Se usa un set monocromo en vez de emoji para que el
     color de la página siga reservado a los datos.
     """
     encabezado = []
     if icono:
-        encabezado.append(html.I(className=f"bi {icono} page-icon"))
-    encabezado.append(html.Span(titulo))
+        encabezado.append(icono_(icono, "page-icon"))
+    # "Contexto clínico: dos tumores..." se compone en dos pesos, como los
+    # titulares: la parte de antes de los dos puntos en fino y el resto en
+    # negrita. El texto es el mismo; solo cambia cómo se compone.
+    if ": " in titulo:
+        antes, despues = titulo.split(": ", 1)
+        encabezado.append(html.Span([html.Span(antes + ":", className="page-title-ligero"),
+                                     html.Br(), despues]))
+    else:
+        encabezado.append(html.Span(titulo))
     return html.Div(
         [
             html.H2(encabezado, className="page-title"),
@@ -46,6 +97,28 @@ def page_header(titulo: str, subtitulo: str, icono: str = "") -> html.Div:
     )
 
 
+def titular(eyebrow: str, linea: str, destacado: str, derecha=None, ayuda: str = "",
+            texto: str = "") -> html.Div:
+    """Titular de pestaña en dos pesos, con un control opcional a la derecha.
+
+    Es la cabecera de la mezcla A + B: una línea fina y otra en negrita
+    ("Describe un paciente / y mira qué predicen"). `derecha` es el control
+    principal de la pestaña (un segmentado, unas subpestañas) y `ayuda`, la
+    etiqueta pequeña que va encima de él.
+    """
+    izquierda = [
+        html.Div(eyebrow, className="titular-eyebrow"),
+        html.H2([linea, html.Br(), html.Strong(destacado)], className="titular"),
+    ]
+    if texto:
+        izquierda.append(html.P(texto, className="titular-texto"))
+    hijos = [html.Div(izquierda, className="titular-izquierda")]
+    if derecha is not None:
+        selector = [html.Div(ayuda, className="titular-ayuda")] if ayuda else []
+        hijos.append(html.Div(selector + [derecha], className="titular-selector"))
+    return html.Div(hijos, className="titular-fila")
+
+
 def section_title(texto: str, nivel: int = 4) -> html.Div:
     """Título de sección dentro de una pestaña."""
     heading = {3: html.H3, 4: html.H4, 5: html.H5}.get(nivel, html.H4)
@@ -54,22 +127,24 @@ def section_title(texto: str, nivel: int = 4) -> html.Div:
 
 def paragraph(texto) -> html.P:
     """Párrafo con el estilo de lectura del dashboard."""
-    return html.P(texto, className="body-text")
+    if isinstance(texto, str) and "$" in texto:
+        return tex(texto, "body-text")
+    return html.P(con_formulas(texto), className="body-text")
 
 
 def bullet_list(items: Iterable, color: str = ACCENT_NEUTRAL) -> html.Ul:
     """Lista con viñetas. El punto es neutro salvo que se pida otro color."""
     return html.Ul(
-        [html.Li(item, className="body-text") for item in items],
+        [html.Li(con_formulas(item), className="body-text") for item in items],
         className="bullet-list",
         style={"--bullet-color": color},
     )
 
 
-def enlace_externo(texto: str, url: str, icono: str = "↗") -> html.A:
+def enlace_externo(texto: str, url: str, icono: str = "arrow_outward") -> html.A:
     """Enlace que abre en una pestaña nueva (libro, dataset, repositorio)."""
     return html.A(
-        f"{texto} {icono}".strip(),
+        [texto, " ", icono_(icono, "icono-enlace")] if icono else texto,
         href=url,
         target="_blank",
         rel="noopener noreferrer",
@@ -98,7 +173,7 @@ def card(
     if titulo:
         cuerpo.append(html.H5(titulo, className="card-title-custom"))
     if subtitulo:
-        cuerpo.append(html.P(subtitulo, className="card-subtitle-custom"))
+        cuerpo.append(html.Div(con_formulas(subtitulo), className="card-subtitle-custom"))
     cuerpo.append(html.Div(children))
 
     # Sin color por defecto: el color del tablero esta reservado a los datos.
@@ -123,11 +198,11 @@ def kpi_card(valor: str, etiqueta: str, detalle: str = "", color: str = ACCENT_N
     concreto, y el color del grado cuando si lo hace.
     """
     cuerpo = [
-        html.Div(etiqueta.upper(), className="kpi-label"),
+        html.Div(etiqueta, className="kpi-label"),
         html.Div(valor, className="kpi-value"),
     ]
     if detalle:
-        cuerpo.append(html.Div(detalle, className="kpi-detail"))
+        cuerpo.append(html.Div(con_formulas(detalle), className="kpi-detail"))
     return dbc.Card(
         [
             html.Div(className="kpi-accent", style={"background": color}),
@@ -153,7 +228,7 @@ def callout(texto, titulo: str | None = None, color: str = ACCENT_NEUTRAL) -> ht
     hijos = []
     if titulo:
         hijos.append(html.Div(titulo, className="callout-title"))
-    hijos.append(html.Div(texto, className="callout-text"))
+    hijos.append(html.Div(con_formulas(texto), className="callout-text"))
     return html.Div(
         hijos,
         className="callout",
@@ -184,8 +259,8 @@ def stat_list(filas: Sequence[tuple[str, str]]) -> html.Div:
         [
             html.Div(
                 [
-                    html.Span(etiqueta, className="stat-etiqueta"),
-                    html.Span(valor, className="stat-valor"),
+                    html.Span(con_formulas(etiqueta), className="stat-etiqueta"),
+                    html.Span(con_formulas(valor), className="stat-valor"),
                 ],
                 className="stat-fila",
             )
@@ -213,7 +288,7 @@ def lectura_guiada(lineas: Iterable, titulo: str = "Lectura guiada") -> dbc.Card
     ve la forma pero tiene que deducir solo qué significa.
     """
     return card(
-        html.Ul([html.Li(linea) for linea in lineas], className="lectura-lista"),
+        html.Ul([html.Li(con_formulas(linea)) for linea in lineas], className="lectura-lista"),
         titulo=titulo,
         className="lectura-card",
     )
@@ -232,19 +307,66 @@ def desplegable(titulo: str, contenido, abierto: bool = False) -> dbc.Accordion:
 # --------------------------------------------------------------------------- #
 # Gráficos y tablas
 # --------------------------------------------------------------------------- #
-def graph_card(figura, titulo: str, nota: str = "", graph_id: str | None = None) -> dbc.Card:
-    """Tarjeta que envuelve un gráfico de Plotly con título y nota al pie."""
-    configuracion = {"displaylogo": False, "responsive": True}
-    grafico = (
-        dcc.Graph(figure=figura, id=graph_id, config=configuracion, className="graph")
-        if graph_id
-        else dcc.Graph(figure=figura, config=configuracion, className="graph")
+def altura_grafico(figura) -> dict | None:
+    """Estilo con la altura en px que fija la figura (None si no la fija)."""
+    try:
+        alto = figura.layout.height
+    except AttributeError:
+        alto = None
+    return {"height": f"{int(alto)}px"} if alto else None
+
+
+# Gráficos que tienen chip «Pregúntale a Glía» (A4): número -> título y nota.
+# El asistente (utils/asistente_panel.py) los busca aquí al pulsar el chip,
+# así el botón solo lleva un número y no el texto entero en su id. Las
+# pestañas se construyen una vez por proceso (LAYOUTS en app.py), así que
+# cada gráfico conserva su número mientras la app vive.
+GRAFICOS_GLIA: dict[str, dict] = {}
+
+
+def chip_glia(titulo: str, nota: str = "") -> html.Button:
+    """Chip «Pregúntale a Glía» que abre el asistente preguntando por un gráfico."""
+    clave = str(len(GRAFICOS_GLIA) + 1)
+    GRAFICOS_GLIA[clave] = {"titulo": titulo, "nota": nota if isinstance(nota, str) else ""}
+    return html.Button(
+        # La célula la pinta assets/glia.js en el lienzo (avatar quieto)
+        [html.Canvas(className="glia-avatar", width=22, height=22, **{"aria-hidden": "true"}),
+         html.Span("Pregúntale a Glía", className="glia-chip-texto")],
+        id={"type": "glia-grafico", "index": clave},
+        className="glia-chip",
+        n_clicks=0,
+        type="button",
+        title=f"Pregúntale a Glía por «{titulo}»",
     )
 
-    cuerpo = [html.H5(titulo, className="card-title-custom"), grafico]
+
+def graph_card(figura, titulo: str, nota: str = "", graph_id: str | None = None,
+               className: str = "") -> dbc.Card:
+    """Tarjeta que envuelve un gráfico de Plotly con título y nota al pie."""
+    configuracion = {"displaylogo": False, "responsive": True}
+    # Con `responsive`, dcc.Graph ignora layout.height y estira la gráfica al
+    # 100 % de su contenedor. Si la tarjeta es la única de su fila, ese 100 % no
+    # se refiere a nada y la gráfica se dibujaba encima del contenido siguiente:
+    # el contenedor recibe aquí la altura de la figura, de forma explícita.
+    estilo = altura_grafico(figura)
+    grafico = (
+        dcc.Graph(figure=figura, id=graph_id, config=configuracion, className="graph",
+                  style=estilo)
+        if graph_id
+        else dcc.Graph(figure=figura, config=configuracion, className="graph", style=estilo)
+    )
+
+    cuerpo = [
+        html.Div(
+            [html.H5(titulo, className="card-title-custom"), chip_glia(titulo, nota)],
+            className="card-titulo-fila",
+        ),
+        grafico,
+    ]
     if nota:
-        cuerpo.append(html.Div(nota, className="graph-note", style={"color": INK_MUTED}))
-    return dbc.Card(dbc.CardBody(cuerpo), className="soft-card")
+        cuerpo.append(html.Div(con_formulas(nota), className="graph-note",
+                               style={"color": INK_MUTED}))
+    return dbc.Card(dbc.CardBody(cuerpo), className=f"soft-card {className}".strip())
 
 
 def data_table(
@@ -253,13 +375,13 @@ def data_table(
     resaltar_primera_columna: bool = True,
 ) -> dbc.Table:
     """Tabla Bootstrap con estilo propio (usada para operacionalización y EDA)."""
-    header = html.Thead(html.Tr([html.Th(h) for h in encabezados]))
+    header = html.Thead(html.Tr([html.Th(con_formulas(h)) for h in encabezados]))
     cuerpo = []
     for fila in filas:
         celdas = []
         for i, valor in enumerate(fila):
             clase = "cell-strong" if (i == 0 and resaltar_primera_columna) else ""
-            celdas.append(html.Td(valor, className=clase))
+            celdas.append(html.Td(con_formulas(valor), className=clase))
         cuerpo.append(html.Tr(celdas))
     return dbc.Table(
         [header, html.Tbody(cuerpo)],

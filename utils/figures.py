@@ -11,8 +11,8 @@ Criterios de diseño aplicados:
     divergente con gris neutro en el cero.
   * La identidad nunca depende solo del color: hay leyenda y etiquetas
     directas en todos los gráficos comparativos.
-  * Todas las figuras describen los datos: el dashboard cubre el análisis
-    exploratorio, no el modelado.
+  * Todas las figuras de este módulo describen los datos. Las de los modelos
+    viven en utils/figures_modelo.py.
   * Rejilla y ejes discretos; marcas finas, con esquinas redondeadas y 2 px de
     separación entre rellenos contiguos.
 """
@@ -23,7 +23,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-from utils.config import LABELS
+from utils.config import LABELS, nombre_corto
 from utils.formato import num, pct
 from utils.data_loader import (
     TIPO_NUMERICA,
@@ -606,7 +606,7 @@ def fig_matriz_spearman(ambito: str = "train") -> go.Figure:
     de correlación no parezca un valor más.
     """
     matriz = matriz_spearman(ambito)
-    etiquetas = list(matriz.columns)
+    etiquetas = [nombre_corto(c) for c in matriz.columns]
 
     # Se oculta el triángulo superior: es el reflejo del inferior y duplicarlo
     # solo añade ruido.

@@ -10,7 +10,7 @@ import dash_bootstrap_components as dbc
 import numpy as np
 from dash import html
 
-from utils.formato import num, pct
+from utils.formato import num, pct, tnum
 from utils.components import (
     badge_numero,
     card,
@@ -25,6 +25,7 @@ from utils.data_loader import (
     matriz_asociacion_genes,
     proporcion_grado,
 )
+from utils.modelo import cargar_resumen, panel_minimo
 from utils.theme import COLOR_GBM, COLOR_LGG, SERIES
 
 OBJETIVOS_ESPECIFICOS = [
@@ -51,24 +52,29 @@ OBJETIVOS_ESPECIFICOS = [
         "discriminativa.",
     ),
     (
+        # Antes eran dos objetivos (redundancia y panel). Se unieron para dejar
+        # sitio al de modelado sin romper la cuadrícula de 3 + 3 tarjetas.
         "4",
-        "Descartar redundancia entre marcadores",
-        "Evaluar la co-ocurrencia entre mutaciones para detectar multicolinealidad y "
-        "confirmar que el conjunto retenido puede entrar completo en un modelo "
-        "posterior sin inestabilidad en la estimación de los parámetros.",
+        "Delimitar un panel reducido y sin redundancia",
+        "Separar las variables que aportan señal sobre el grado de las que no y "
+        "evaluar la co-ocurrencia entre mutaciones, para sostener con evidencia que "
+        "un panel más pequeño basta y que puede entrar en un modelo sin "
+        "multicolinealidad.",
     ),
     (
         "5",
-        "Delimitar el panel que merece la pena secuenciar",
-        "Separar las variables que aportan señal sobre el grado de las que no, para "
-        "sostener con evidencia la hipótesis de que un panel más pequeño bastaría "
-        "para la decisión clínica.",
+        "Entrenar y comparar modelos de clasificación",
+        "Ajustar regresión logística, Random Forest y XGBoost con validación cruzada "
+        "anidada, comparar técnicas de balanceo y de optimización de "
+        "hiperparámetros, evaluar discriminación y calibración en el conjunto de "
+        "prueba y medir cuánto se pierde con solo las variables que más aportan.",
     ),
     (
         "6",
         "Poner el análisis a disposición de otros",
-        "Publicar el desarrollo completo como Jupyter Book y una capa interactiva "
-        "—este dashboard— que permita explorar el EDA sin tocar el código.",
+        "Publicar el desarrollo completo en un Jupyter Book y acompañarlo de un "
+        "tablero interactivo que permita explorar los datos, comparar los modelos y "
+        "obtener predicciones sin necesidad de ejecutar código.",
     ),
 ]
 
@@ -86,6 +92,9 @@ def _tabla_criterios() -> dbc.Table:
     # Diferencia de composición entre entrenamiento y prueba (en puntos)
     gbm_train = proporcion_grado("train").set_index("grado").loc["GBM", "porcentaje"]
     gbm_test = proporcion_grado("test").set_index("grado").loc["GBM", "porcentaje"]
+    # Con las cifras ya redondeadas: restando antes de redondear salía
+    # «42,0 % y 41,7 % (0,4 puntos)», que el lector toma por una cuenta mal hecha.
+    gbm_train, gbm_test = round(gbm_train, 1), round(gbm_test, 1)
     brecha = abs(gbm_train - gbm_test)
 
     # V de Cramér máxima entre pares distintos de genes
@@ -106,8 +115,8 @@ def _tabla_criterios() -> dbc.Table:
             "Cumple" if brecha < 2 else "Revisar",
         ],
         [
-            "Al menos un marcador con asociación fuerte (|r| ≥ 0,50)",
-            f"El máximo observado es |r| = {num(rho_maximo, 2)}",
+            r"Al menos un marcador con asociación fuerte ($|r| \geq 0{,}50$)",
+            f"El máximo observado es $|r| = {tnum(rho_maximo, 2)}$",
             "Cumple" if rho_maximo >= 0.50 else "No cumple",
         ],
         [
@@ -121,6 +130,30 @@ def _tabla_criterios() -> dbc.Table:
             "Cumple" if significativas < len(asociacion) else "No cumple",
         ],
     ]
+
+    # Criterios del modelado, con las cifras que exporta el libro
+    # (modelos/resumen_modelado.json): AUC de prueba de los tres finales y
+    # AUC de validación cruzada del panel de 4 frente a las 23 variables.
+    resumen = cargar_resumen()
+    auc_prueba = {m: d["auc_test"] for m, d in resumen["modelos"].items()}
+    auc_min = min(auc_prueba.values())
+    # El panel, con la regla de un error estándar que fija el notebook (el
+    # criterio anterior, «el de 4 pierde menos de 0,01», no venía del libro)
+    pm = panel_minimo(resumen)
+    filas += [
+        [
+            "Los tres modelos discriminan bien en prueba (AUC ≥ 0,90)",
+            f"AUC de {num(auc_min, 3)} a {num(max(auc_prueba.values()), 3)} "
+            f"en los {resumen['meta']['n_test']} pacientes de prueba",
+            "Cumple" if auc_min >= 0.90 else "No cumple",
+        ],
+        [
+            "Un panel reducido no se distingue del completo (regla de un error estándar)",
+            f"{pm['k']} de 23 variables: AUC {num(pm['auc_k'], 3)} frente a "
+            f"{num(pm['auc_todas'], 3)} en validación cruzada. Con 4, {num(pm['auc_4'], 3)}",
+            "Cumple" if pm["k"] < 23 else "No cumple",
+        ],
+    ]
     return data_table(["Criterio", "Resultado observado", "Estado"], filas)
 
 
@@ -132,7 +165,7 @@ def layout() -> html.Div:
                 "Objetivos del proyecto",
                 "Qué se propone construir, con qué pasos y con qué criterio se "
                 "considera suficiente el resultado.",
-                "bi-bullseye",
+                "track_changes",
             ),
             card(
                 [
@@ -146,14 +179,7 @@ def layout() -> html.Div:
                     paragraph(
                         "El énfasis está en la palabra óptimo: no se busca la mayor "
                         "cantidad de información posible, sino la mínima que sostenga la "
-                        "decisión clínica. Este tablero cubre la fase que responde esa "
-                        "pregunta: cuáles de las 23 variables disponibles se relacionan de "
-                        "verdad con el grado del tumor, y con qué fuerza."
-                    ),
-                    paragraph(
-                        "La fase de modelado, que traduciría esos hallazgos en un "
-                        "clasificador, es el paso siguiente y queda fuera del alcance "
-                        "de esta entrega."
+                        "decisión clínica."
                     ),
                 ],
                 titulo="Objetivo general",
@@ -186,15 +212,15 @@ def layout() -> html.Div:
             card(
                 [
                     paragraph(
-                        "Cada criterio se comprueba contra los datos cada vez que se abre "
-                        "esta pestaña, no contra una cifra escrita a mano. Si mañana se "
-                        "reemplaza el dataset, la tabla se recalcula y delata cualquier "
-                        "supuesto que haya dejado de cumplirse."
+                        "Cada criterio se evalúa directamente sobre los datos: las cifras "
+                        "de la tabla salen del mismo cálculo que el resto del tablero, de "
+                        "modo que el estado refleja lo que los datos muestran y no una "
+                        "afirmación previa."
                     ),
                     _tabla_criterios(),
                 ],
                 titulo="Estado frente a los criterios definidos",
-                subtitulo="Calculado en vivo sobre el dataset del proyecto",
+                subtitulo="Calculado sobre el dataset del proyecto, no escrito a mano",
             ),
         ],
         className="vista-pestana",

@@ -34,11 +34,32 @@
     return 1 - Math.pow(1 - t, 3);
   }
 
+  // KPI que ya se contaron en esta visita. React vuelve a montar las
+  // tarjetas cada vez que entras en una pestaña, y contar desde cero en cada
+  // visita convertía una cifra que ya conoces en una espera (y durante 0,7 s
+  // enseñaba valores intermedios falsos: «575» pacientes camino de 671). Se
+  // cuenta la primera vez; al volver, la cifra aparece ya puesta. Las cifras
+  // de Predicción (.cifra-animada) sí se cuentan siempre: cambian con cada
+  // perfil, y ahí el recuento es la respuesta a lo que el usuario hizo.
+  var vistas = {};
+
+  function claveKpi(el, texto) {
+    var tarjeta = el.closest(".kpi-card");
+    return tarjeta ? tarjeta.textContent.replace(texto, "").trim() + "|" + texto : null;
+  }
+
   function animar(el) {
     if (el.dataset.contado) return;
     el.dataset.contado = "1";
 
     var texto = el.textContent.trim();
+    if (el.classList.contains("kpi-value")) {
+      var clave = claveKpi(el, texto);
+      if (clave) {
+        if (vistas[clave]) return;
+        vistas[clave] = true;
+      }
+    }
     var partido = texto.match(/^(-?\d+(?:[.,]\d+)?)([\s\S]*)$/);
     if (!partido) return; // no empieza por un numero: se deja como esta
 
@@ -84,7 +105,7 @@
   }
 
   function barrer() {
-    var cifras = document.querySelectorAll(".kpi-value:not([data-contado])");
+    var cifras = document.querySelectorAll(".kpi-value:not([data-contado]), .cifra-animada:not([data-contado])");
     for (var i = 0; i < cifras.length; i++) animar(cifras[i]);
   }
 

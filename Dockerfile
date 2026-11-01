@@ -28,8 +28,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copiar el resto del proyecto (.dockerignore excluye jbook/, venv, cachés...)
 COPY . .
 
-# Nota: el dashboard cubre el análisis exploratorio y no carga ni entrena ningún
-# modelo, así que la imagen solo necesita el dataset y el código de las pestañas.
+# Nota: el dashboard no entrena modelos. Las pestañas Modelos y Predicción leen
+# modelos/*.json (exportados desde jbook/ con `python -m modelado.exportar`) y
+# predicen con numpy, así que la imagen no necesita XGBoost ni imbalanced-learn.
 
 # Puerto de la aplicación (Cloud Run envía tráfico al 8080 por defecto)
 EXPOSE 8080
@@ -37,5 +38,9 @@ EXPOSE 8080
 # Un solo worker con varios hilos: cada worker carga su propia copia de pandas,
 # scipy y el dataset, así que dos workers duplicarían la memoria sin aportar
 # nada (el trabajo del dashboard es de espera, no de CPU).
+# Sin --preload: app.py arranca un hilo que construye todas las pestañas al
+# iniciar (`_precalentar`). Con --preload ese hilo correría en el proceso
+# maestro, el worker heredaría las cachés a medio llenar y, si el hilo tenía
+# un bloqueo tomado al hacer fork, podría quedarse colgado.
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "--workers", "1", "--threads", "8", \
-     "--timeout", "120", "--preload", "app:server"]
+     "--timeout", "120", "app:server"]

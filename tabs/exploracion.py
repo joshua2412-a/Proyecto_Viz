@@ -16,15 +16,15 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, dcc, html
 
-from utils.formato import num, p_valor
+from utils.formato import num, p_tex, p_valor, tnum
 from utils.components import (
+    titular,
     callout,
     card,
     chip_tipo,
     banda_oscura,
     desplegable,
     graph_card,
-    lectura_guiada,
     page_header,
     paragraph,
     section_title,
@@ -36,8 +36,6 @@ from utils.data_loader import (
     AMBITO_NOMBRES,
     EFECTO_MINIMO,
     ficha_variable,
-    lectura_bivariada,
-    lectura_univariada,
     opciones_variables,
     prueba_bivariada,
     resumen_univariado,
@@ -113,31 +111,47 @@ def _controles() -> dbc.Card:
 def _ficha(variable: str) -> dbc.Card:
     """Diccionario de datos recortado a la variable elegida.
 
-    El marco teórico sigue mostrando la tabla de operacionalización completa.
-    Esto no la sustituye: la trae aquí en la dosis que hace falta para leer el
-    gráfico que está al lado, sin cambiar de pestaña.
+    Sin texto de manual: el nombre, su tipo y los tres datos que hacen falta
+    para leer el gráfico de al lado. El marco teórico sigue mostrando la tabla
+    de operacionalización completa.
     """
     ficha = ficha_variable(variable)
-    return card(
-        [
-            html.Div(chip_tipo(ficha["tipo_nombre"]), className="mb-3"),
-            paragraph(ficha["descripcion"]),
-            stat_list(
-                [
-                    ("Nombre en el dataset", ficha["variable"]),
-                    ("Codificación", ficha["codificacion"]),
-                ]
-            ),
-            html.Div(ficha["papel"], className="ficha-papel"),
-        ],
-        titulo=f"Ficha de {ficha['nombre']}",
-        className="mb-4",
-        tono="acento",
+    papel = ficha["papel"]
+    prueba = papel.split("·", 1)[1].strip() if "·" in papel else papel
+    for prefijo in ("se contrasta con la ", "se contrasta con el ", "se contrasta con "):
+        if prueba.startswith(prefijo):
+            prueba = prueba[len(prefijo):]
+    prueba = prueba[:1].upper() + prueba[1:]
+
+    def campo(etiqueta, valor, mono=False):
+        return html.Div(
+            [html.Div(etiqueta, className="ficha-etiqueta"),
+             html.Div(valor, className="ficha-valor ficha-mono" if mono else "ficha-valor")],
+            className="ficha-campo",
+        )
+
+    return dbc.Card(
+        dbc.CardBody(
+            [
+                html.Div(
+                    [html.Span(ficha["nombre"], className="ficha-nombre"),
+                     html.Span(ficha["tipo_nombre"].lower(), className="ficha-tipo")],
+                    className="ficha-cabecera",
+                ),
+                html.Div(
+                    [campo("En el dataset", ficha["variable"], mono=True),
+                     campo("Prueba", prueba),
+                     campo("Codificación", ficha["codificacion"])],
+                    className="ficha-campos",
+                ),
+            ]
+        ),
+        className="soft-card ficha-limpia",
     )
 
 
 def _panel_univariado(variable: str, ambito: str) -> html.Div:
-    """Distribución de la variable, sus descriptivos y su lectura."""
+    """Distribución de la variable, sus descriptivos y su ficha."""
     ficha = ficha_variable(variable)
     resumen = resumen_univariado(variable, ambito)
 
@@ -166,16 +180,7 @@ def _panel_univariado(variable: str, ambito: str) -> html.Div:
                     ),
                 ]
             ),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        lectura_guiada(lectura_univariada(variable, ambito)),
-                        lg=7,
-                        className="mb-4",
-                    ),
-                    dbc.Col(_ficha(variable), lg=5),
-                ]
-            ),
+            dbc.Row([dbc.Col(_ficha(variable), lg=12, className="mb-4")]),
         ]
     )
 
@@ -187,21 +192,21 @@ def _panel_pruebas(variable: str, ambito: str) -> dbc.Accordion:
     """Las pruebas aplicadas, plegadas como en los desplegables del libro."""
     prueba = prueba_bivariada(variable, ambito)
     significativa = prueba["significativa"]
-    p_texto = p_valor(prueba["p_valor"])
+    p_texto = p_tex(prueba["p_valor"])
 
     if significativa:
         veredicto = (
             f"Se rechaza la hipótesis nula ({p_texto}) y la magnitud supera el "
-            f"umbral del proyecto ({prueba['magnitud_nombre']} = "
-            f"{num(prueba['magnitud'], 2)} ≥ {num(EFECTO_MINIMO, 2)}): la "
+            f"umbral del proyecto ({prueba['magnitud_nombre']} $= "
+            f"{tnum(prueba['magnitud'], 2)} \\geq {tnum(EFECTO_MINIMO, 2)}$): la "
             "asociación es distinguible del azar y además tiene tamaño "
             "suficiente para que merezca la pena mirarla."
         )
     elif prueba["p_valor"] < ALFA:
         veredicto = (
             f"Se rechaza la hipótesis nula ({p_texto}), pero la magnitud queda por "
-            f"debajo del umbral del proyecto ({prueba['magnitud_nombre']} = "
-            f"{num(prueba['magnitud'], 2)}, frente a {num(EFECTO_MINIMO, 2)}). "
+            f"debajo del umbral del proyecto ({prueba['magnitud_nombre']} "
+            f"$= {tnum(prueba['magnitud'], 2)}$, frente a ${tnum(EFECTO_MINIMO, 2)}$). "
             "Significancia no es magnitud: con esta muestra, una diferencia "
             "pequeña basta para salir significativa."
         )
@@ -227,7 +232,7 @@ def _panel_pruebas(variable: str, ambito: str) -> dbc.Accordion:
 
 
 def _panel_bivariado(variable: str, ambito: str) -> html.Div:
-    """La variable frente al grado, con su lectura y sus pruebas.
+    """La variable frente al grado, con sus pruebas.
 
     Siempre sobre el conjunto de entrenamiento, da igual qué pida el selector:
     cruzar una variable con el grado en el conjunto reservado es justo lo que
@@ -272,12 +277,7 @@ def _panel_bivariado(variable: str, ambito: str) -> html.Div:
                             f"{ficha['nombre']} frente al grado tumoral",
                             nota,
                         ),
-                        lg=7,
-                        className="mb-4",
-                    ),
-                    dbc.Col(
-                        lectura_guiada(lectura_bivariada(variable, "train")),
-                        lg=5,
+                        lg=12,
                         className="mb-4",
                     ),
                 ]
@@ -294,61 +294,43 @@ def layout() -> html.Div:
     """Layout de la pestaña de exploración."""
     return html.Div(
         [
-            page_header(
-                "Exploración",
-                "Elige una variable y míralas por dentro: su distribución, sus "
-                "descriptivos y la prueba que decide si separa los dos grados.",
-                "bi-sliders",
-            ),
-            banda_oscura(
-                "Exploración de variables",
-                "Alterna entre la lectura univariada y la comparación contra el "
-                "grado tumoral sin salir del mismo módulo. La forma del gráfico "
-                "la decide el tipo de dato: una variable continua pide una "
-                "distribución y una categórica pide una comparación de "
-                "proporciones. El conjunto de datos solo cambia la vista "
-                "univariada, que es descripción pura y sirve para comprobar que "
-                "la partición quedó repartida de forma parecida; la comparación "
-                "contra el grado y sus pruebas se describen siempre sobre "
-                "entrenamiento.",
-                eyebrow="Módulo interactivo",
+            titular(
+                "02 El método · Exploración",
+                "Elige una variable",
+                "y mírala por dentro",
+                derecha=dbc.Tabs(
+                    [
+                        dbc.Tab(
+                            label="Univariado",
+                            tab_id=TAB_UNIVARIADO,
+                            label_class_name="sub-tab",
+                            active_label_class_name="sub-tab-active",
+                        ),
+                        dbc.Tab(
+                            label="Frente al grado",
+                            tab_id=TAB_BIVARIADO,
+                            label_class_name="sub-tab",
+                            active_label_class_name="sub-tab-active",
+                        ),
+                    ],
+                    id=ID_SUBTAB,
+                    active_tab=TAB_UNIVARIADO,
+                    className="sub-tabs sub-tabs-oscuras",
+                ),
+                ayuda="Vista",
+                texto="Su distribución, sus descriptivos y la prueba que decide si separa "
+                      "los dos grados.",
             ),
             _controles(),
             html.Div(series_chips(), className="mb-3"),
-            dbc.Tabs(
-                [
-                    dbc.Tab(
-                        label="Análisis univariado",
-                        tab_id=TAB_UNIVARIADO,
-                        label_class_name="sub-tab",
-                        active_label_class_name="sub-tab-active",
-                    ),
-                    dbc.Tab(
-                        label="Análisis bivariado",
-                        tab_id=TAB_BIVARIADO,
-                        label_class_name="sub-tab",
-                        active_label_class_name="sub-tab-active",
-                    ),
-                ],
-                id=ID_SUBTAB,
-                active_tab=TAB_UNIVARIADO,
-                className="sub-tabs",
-            ),
             dcc.Loading(
                 html.Div(
                     _panel_univariado(VARIABLE_INICIAL, "train"),
                     id=ID_CONTENIDO,
                 ),
                 type="dot",
-            ),
-            section_title("Dónde seguir"),
-            callout(
-                "Este módulo responde de una en una. El recorrido completo, con "
-                "las variables comparadas entre sí y la matriz de "
-                "multicolinealidad, está en Resultados; la tabla de "
-                "operacionalización de las 23 predictoras y el detalle de cada "
-                "prueba, en Marco teórico.",
-                titulo="Cómo se relaciona con el resto del tablero",
+                target_components={ID_CONTENIDO: "children"},
+                delay_show=200,
             ),
         ],
         className="vista-pestana",
@@ -363,6 +345,8 @@ def layout() -> html.Div:
     Input(ID_VARIABLE, "value"),
     Input(ID_AMBITO, "value"),
     Input(ID_SUBTAB, "active_tab"),
+    # El layout ya trae el panel inicial: sin esto se recalculaba al abrir.
+    prevent_initial_call=True,
 )
 def actualizar_exploracion(variable: str, ambito: str, subtab: str):
     """Reconstruye el panel con la variable, el conjunto y la vista elegidos."""

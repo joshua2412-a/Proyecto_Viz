@@ -35,6 +35,7 @@ URL_DASHBOARD = "https://gliomas-dashboard-984926604434.us-central1.run.app"
 
 URL_LIBRO = "https://joshua2412-a.github.io/Proyecto_Viz/"
 URL_LIBRO_EDA = f"{URL_LIBRO}01_EDA.html"
+URL_LIBRO_MODELADO = f"{URL_LIBRO}02_Modelado.html"
 URL_REPO_LIBRO = "https://github.com/joshua2412-a/Proyecto_Viz"
 
 # Autores del proyecto. El orden es el mismo que en la portada del libro
@@ -136,6 +137,24 @@ RACE_AGRUPADA = {
     2: "Other racial groups",
     3: "Other racial groups",
 }
+
+# Nombre corto en español de las variables clínicas, para tablas y ejes donde
+# no cabe la etiqueta larga. Los genes se quedan con su símbolo. Las columnas
+# del CSV siguen en inglés: esto solo cambia lo que se muestra.
+NOMBRE_CORTO = {
+    "Grade": "Grado",
+    "Age_at_diagnosis": "Edad",
+    "Gender": "Género",
+    "Race": "Grupo racial",
+    "Race (binaria)": "Grupo racial",
+    "Race_binary": "Grupo racial",
+}
+
+
+def nombre_corto(variable: str) -> str:
+    """Nombre en español de una variable clínica; los genes, tal cual."""
+    return NOMBRE_CORTO.get(variable, variable)
+
 
 # Etiquetas legibles para ejes, tablas y formularios
 LABELS = {

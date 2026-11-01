@@ -16,29 +16,33 @@ cualquiera sin arrastrar dependencias.
 from __future__ import annotations
 
 # (id, etiqueta, icono, descripción) en el orden en que se recorre el tablero.
-# El icono es de Bootstrap Icons, que ya carga app.py.
+# El icono es un nombre de Material Symbols (fonts.google.com/icons), que carga app.py.
 PESTANAS = [
-    ("tab-introduccion", "Introducción", "bi-house",
+    ("tab-introduccion", "Introducción", "home",
      "Portada, ficha del dataset y guía de lectura."),
-    ("tab-contexto", "Contexto clínico", "bi-heart-pulse",
+    ("tab-contexto", "Contexto clínico", "monitor_heart",
      "Qué son LGG y GBM y por qué importa distinguirlos."),
-    ("tab-problema", "Problema", "bi-exclamation-circle",
+    ("tab-problema", "Problema", "error",
      "El coste de la secuenciación completa como cuello de botella."),
-    ("tab-objetivos", "Objetivos", "bi-bullseye",
+    ("tab-objetivos", "Objetivos", "track_changes",
      "Qué se propone resolver el proyecto y con qué criterio."),
-    ("tab-marco", "Marco teórico", "bi-journal-text",
+    ("tab-marco", "Marco teórico", "menu_book",
      "Las variables del panel y las pruebas estadísticas."),
-    ("tab-metodologia", "Metodología", "bi-clipboard-data",
+    ("tab-metodologia", "Metodología", "assignment",
      "Partición, control de calidad y contrastes aplicados."),
-    ("tab-exploracion", "Exploración", "bi-sliders",
+    ("tab-exploracion", "Exploración", "tune",
      "Cada variable por separado, con su ficha y sus pruebas."),
-    ("tab-resultados", "Resultados", "bi-bar-chart-line",
+    ("tab-resultados", "Resultados", "bar_chart",
      "El análisis exploratorio, variable a variable."),
-    ("tab-limitaciones", "Limitaciones", "bi-exclamation-triangle",
-     "Qué NO se puede concluir con este trabajo."),
-    ("tab-conclusiones", "Conclusiones", "bi-check2-circle",
-     "Hallazgos del EDA y siguiente paso del proyecto."),
-    ("tab-documentacion", "Documentación", "bi-book",
+    ("tab-modelos", "Modelos", "account_tree",
+     "Cómo se entrenaron, evaluaron y compararon los tres clasificadores."),
+    ("tab-prediccion", "Predicción", "calculate",
+     "Describe un paciente y mira qué predicen los modelos y por qué."),
+    ("tab-limitaciones", "Limitaciones", "warning",
+     "Qué NO se puede concluir del análisis ni de los modelos."),
+    ("tab-conclusiones", "Conclusiones", "check_circle",
+     "Lo que deja el proyecto, del EDA al clasificador."),
+    ("tab-documentacion", "Documentación", "book",
      "El Jupyter Book, el repositorio y cómo compilar."),
 ]
 
@@ -77,10 +81,19 @@ BLOQUES = [
     },
     {
         "numero": "03",
-        "titulo": "Los hallazgos",
-        "resumen": "El análisis variable a variable, lo que se puede concluir "
-                   "de él y, sobre todo, lo que no.",
-        "pestanas": ["tab-resultados", "tab-limitaciones", "tab-conclusiones"],
+        "titulo": "Los resultados",
+        "resumen": "El análisis variable a variable y los clasificadores que "
+                   "salen de él: cómo rinden en pacientes nuevos y qué predicen "
+                   "para un perfil concreto.",
+        "pestanas": ["tab-resultados", "tab-modelos", "tab-prediccion"],
+        "en_guia": True,
+    },
+    {
+        "numero": "04",
+        "titulo": "El cierre",
+        "resumen": "Lo que se puede concluir del trabajo completo y, sobre "
+                   "todo, lo que no.",
+        "pestanas": ["tab-limitaciones", "tab-conclusiones"],
         "en_guia": True,
     },
     {

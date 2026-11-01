@@ -17,7 +17,7 @@ runtime: python312
 # Un solo worker con varios hilos: cada worker carga su propia copia de pandas,
 # scipy y el dataset, así que dos workers duplicarían la memoria sin aportar
 # nada. Los hilos bastan porque el trabajo del dashboard es de espera, no de CPU.
-entrypoint: gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 --preload app:server
+entrypoint: gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 app:server
 
 # F2 = 512 MB. La cuota gratuita diaria de App Engine (28 horas-instancia) es de
 # clase F1, que solo tiene 256 MB: con pandas + scikit-learn + plotly cargados es

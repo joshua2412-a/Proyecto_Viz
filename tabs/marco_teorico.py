@@ -10,7 +10,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
-from utils.formato import num, pct
+from utils.formato import num, pct, tnum
 from utils.components import (
     bullet_list,
     callout,
@@ -47,21 +47,21 @@ $$
 
 FORMULA_SPEARMAN = r"""
 $$
-\rho \;=\; 1 - \frac{6 \sum d_i^{2}}{n\,(n^{2}-1)}
+r \;=\; 1 - \frac{6 \sum d_i^{2}}{n\,(n^{2}-1)}
 $$
 """
 
 ESTADISTICOS = [
     (
         "p-valor",
-        "Probabilidad de observar una diferencia así de grande si en realidad no "
-        "hubiera ninguna.",
+        "Probabilidad de observar una diferencia al menos tan grande como la "
+        "observada si en realidad no hubiera ninguna.",
         "Responde a si la asociación es distinguible del azar, no a si es "
         "importante. Con 671 pacientes, diferencias minúsculas pueden salir "
         "significativas.",
     ),
     (
-        "Spearman (ρ)",
+        r"Spearman ($r$)",
         "Correlación entre los rangos de dos variables: va de -1 a +1.",
         "Aporta el signo, que es lo que permite decir si una variable empuja hacia "
         "LGG (negativo) o hacia GBM (positivo). No exige normalidad ni linealidad.",
@@ -93,25 +93,27 @@ def _tabla_variables() -> dbc.Table:
         ["Variable", "Tipo", "Codificación", "Papel en el análisis"],
         [
             [
-                "Grade",
+                # Nombre en español y, entre paréntesis, la columna del CSV:
+                # es una tabla de operacionalización, así que se ven las dos.
+                "Grado (Grade)",
                 "Binaria",
                 "0 = LGG · 1 = GBM",
                 "Variable objetivo",
             ],
             [
-                "Age_at_diagnosis",
+                "Edad al diagnóstico (Age_at_diagnosis)",
                 "Continua (años)",
                 "Decimales incluidos: recogen los días exactos",
                 "Predictora · se contrasta con Mann-Whitney",
             ],
             [
-                "Gender",
+                "Género (Gender)",
                 "Binaria",
                 " · ".join(f"{clave} = {valor}" for clave, valor in GENDER_LABELS.items()),
                 "Predictora · chi-cuadrado, V de Cramér y Spearman",
             ],
             [
-                "Race",
+                "Grupo racial (Race)",
                 "Categórica (4 niveles)",
                 " · ".join(f"{clave} = {valor}" for clave, valor in RACE_LABELS.items()),
                 "Predictora · chi-cuadrado, V de Cramér y Spearman sobre la "
@@ -147,7 +149,7 @@ def _tabla_genes() -> dbc.Table:
         elif asociacion.loc[gen, "p_valor"] >= ALFA:
             marca = " (no significativa)"
         else:
-            marca = f" (débil: |ρ| < {num(EFECTO_MINIMO, 2)})"
+            marca = f" (débil: $|r| < {tnum(EFECTO_MINIMO, 2)}$)"
         filas.append(
             [
                 gen,
@@ -169,17 +171,17 @@ def layout() -> html.Div:
                 "Marco teórico",
                 "Qué mide cada variable, qué prueba estadística le corresponde y "
                 "cómo se interpretan sus resultados.",
-                "bi-journal-text",
+                "menu_book",
             ),
             section_title("Operacionalización de las variables"),
             card(
                 [
                     paragraph(
-                        "El dataset llega ya codificado numéricamente. Conocer esa "
-                        "codificación es imprescindible para leer los coeficientes: un "
-                        "coeficiente positivo en Gender no significa 'ser hombre aumenta "
-                        "el riesgo', sino que la categoría codificada como 1 (femenino) lo "
-                        "hace respecto a la de referencia."
+                        "El dataset llega ya codificado numéricamente, y esa codificación "
+                        "es la que da sentido a los signos: como el género vale 0 en los "
+                        "hombres y 1 en las mujeres, una correlación o un coeficiente "
+                        "positivo en género indicaría más riesgo de GBM en las mujeres "
+                        "que en los hombres, que son la categoría de referencia."
                     ),
                     _tabla_variables(),
                 ],
@@ -192,7 +194,7 @@ def layout() -> html.Div:
                         card(
                             [
                                 paragraph(
-                                    "Decir que una mutación «está relacionada» con el "
+                                    "Decir que una mutación está relacionada con el "
                                     "grado del tumor no significa nada hasta que se "
                                     "cuantifica. Dos preguntas distintas, dos números "
                                     "distintos: ¿es distinguible del azar?, y ¿de qué "
@@ -239,6 +241,14 @@ def layout() -> html.Div:
                                     mathjax=True,
                                     className="formula-block",
                                 ),
+                                # La fórmula clásica supone que no hay empates; con
+                                # variables 0/1 casi todo son empates.
+                                paragraph(
+                                    "La fórmula es la de datos sin empates. Con variables "
+                                    "0/1, casi todos los valores empatan, y el coeficiente "
+                                    "se calcula como la correlación de Pearson entre los "
+                                    "rangos, que es su definición general."
+                                ),
                                 bullet_list(
                                     [
                                         "Signo negativo: la variable acompaña a los "
@@ -249,7 +259,7 @@ def layout() -> html.Div:
                                 ),
                                 paragraph(
                                     "Codificando el grado como 0 = LGG y 1 = GBM, el "
-                                    "signo de ρ se lee directamente como la dirección "
+                                    r"signo de $r$ se lee directamente como la dirección "
                                     "hacia la que empuja cada marcador."
                                 ),
                             ],
@@ -276,8 +286,7 @@ def layout() -> html.Div:
                     paragraph(
                         "Los 20 genes del panel son los de mayor frecuencia de mutación en "
                         "los proyectos TCGA-LGG y TCGA-GBM. La prevalencia y la asociación "
-                        "se calculan sobre el conjunto de entrenamiento, así que cambian "
-                        "solas si se reemplaza el dataset."
+                        "se calculan sobre el conjunto de entrenamiento."
                     ),
                     _tabla_genes(),
                     html.Div(

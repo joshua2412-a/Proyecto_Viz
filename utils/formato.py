@@ -51,6 +51,23 @@ def p_valor(valor, umbral: float = 0.0001) -> str:
     return "p < 0,0001" if valor < umbral else f"p = {num(valor, 4)}"
 
 
+def tnum(valor, decimales: int = 1, signo: bool = False) -> str:
+    """`num` para escribir dentro de una fórmula LaTeX: 0,10 -> 0{,}10.
+
+    En modo matemático la coma es un signo de puntuación y TeX deja un espacio
+    detrás; entre llaves se compone como coma decimal, sin hueco.
+    """
+    return num(valor, decimales, signo).replace(",", "{,}")
+
+
+def p_tex(valor, umbral: float = 0.0001) -> str:
+    """`p_valor` en LaTeX, para las frases que ya llevan otras fórmulas."""
+    if _es_nulo(valor):
+        return "—"
+    return (f"$p < {tnum(umbral, 4)}$" if valor < umbral
+            else f"$p = {tnum(valor, 4)}$")
+
+
 def lista_y(elementos) -> str:
     """Enumera en español: "A", "A y B", "A, B y C".
 

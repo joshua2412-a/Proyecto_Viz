@@ -9,6 +9,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import html
 
+from utils.config import nombre_corto
 from utils.components import (
     bullet_list,
     callout,
@@ -39,18 +40,23 @@ def _tabla_señal() -> dbc.Table:
     significativas = asociacion[asociacion["significativa"]]
     descartables = asociacion[~asociacion["significativa"]]
 
+    # Las tres clínicas llegan con el nombre de su columna (Age_at_diagnosis,
+    # Gender, Race); en la tabla se leen en español, como en el resto del tablero.
+    def nombres(filas) -> str:
+        return ", ".join(nombre_corto(v) for v in filas["variable"])
+
     return data_table(
         ["Grupo", "Variables", "Cuáles"],
         [
             [
-                "Con señal (p < 0,05 y |r| ≥ 0,10)",
+                r"Con señal ($p < 0{,}05$ y $|r| \geq 0{,}10$)",
                 f"{len(significativas)}",
-                ", ".join(significativas["variable"].tolist()),
+                nombres(significativas),
             ],
             [
                 "Sin señal apreciable",
                 f"{len(descartables)}",
-                ", ".join(descartables["variable"].tolist()),
+                nombres(descartables),
             ],
         ],
     )
@@ -64,7 +70,7 @@ def layout() -> html.Div:
                 "El problema: decidir el grado con la menor información posible",
                 "Clasificar LGG frente a GBM es un problema de clasificación binaria, "
                 "pero con una restricción práctica: cada gen que se secuencia cuesta.",
-                "bi-exclamation-circle",
+                "error",
             ),
             dbc.Row(
                 [
@@ -127,7 +133,7 @@ def layout() -> html.Div:
                     paragraph(
                         "Cruzando cada predictora con el grado tumoral en el conjunto de "
                         "entrenamiento, las variables se reparten en dos grupos muy "
-                        "desiguales. Las que no alcanzan significancia estadística ni una "
+                        "desiguales. Las que no alcanzan significancia estadística o una "
                         "magnitud mínima de asociación aportan una varianza explicativa "
                         "insignificante, y son las primeras candidatas a salir del panel."
                     ),
@@ -135,14 +141,17 @@ def layout() -> html.Div:
                     bullet_list(
                         [
                             "IDH1 es el marcador con mayor capacidad discriminativa y de "
-                            "signo inverso a la malignidad (r ≈ -0,70): su mutación es "
+                            r"signo inverso a la malignidad ($r \approx -0{,}70$): su mutación es "
                             "prácticamente una firma de glioma de bajo grado.",
                             "La edad al diagnóstico es el principal correlato clínico "
-                            "directo con la severidad (r ≈ +0,53).",
+                            r"directo con la severidad ($r \approx +0{,}53$).",
                             f"PTEN es el marcador de riesgo genómico más sólido "
                             f"(V de Cramér = {_v_de('PTEN')}), seguido de EGFR y RB1.",
-                            "Gender, PDGFRA, NF1, CSMD3, BCOR, PIK3CA y FAT4 no muestran "
-                            "asociación apreciable con el grado en esta muestra.",
+                            # La tabla de arriba lista nueve; como en el libro,
+                            # se nombran las más claras sin darlas por todas.
+                            "Género, PDGFRA, NF1, CSMD3, BCOR, PIK3CA y FAT4, entre "
+                            "otras, no muestran asociación apreciable con el grado en "
+                            "esta muestra.",
                         ],
                     ),
                 ],

@@ -1,7 +1,7 @@
 """
 Pestaña 1 · Introducción
 Portada del tablero: presenta el problema de la caracterización del grado
-tumoral en gliomas y reparte la lectura del resto de pestañas en tres bloques.
+tumoral en gliomas y reparte la lectura del resto de pestañas en cuatro bloques.
 
 Cada pestaña expone una única función pública `layout()` y es totalmente
 autónoma: no importa nada de las demás pestañas. Lo único que esta comparte
@@ -13,10 +13,11 @@ para cambiar de pestaña sin recargar nada.
 from __future__ import annotations
 
 import dash_bootstrap_components as dbc
-from dash import get_asset_url, html
+from dash import html
 
-from utils.formato import lista_y, num, pct
+from utils.formato import num, pct
 from utils.components import (
+    icono,
     bullet_list,
     callout,
     card,
@@ -26,7 +27,7 @@ from utils.components import (
     section_title,
     series_chips,
 )
-from utils.config import AUTORES, URL_DATASET, URL_LIBRO
+from utils.config import URL_DATASET, URL_LIBRO
 from utils.data_loader import (
     asociacion_con_grado,
     prevalencia_genes,
@@ -40,59 +41,6 @@ from utils.theme import ACCENT_NEUTRAL, COLOR_GBM, COLOR_LGG
 # --------------------------------------------------------------------------- #
 # Piezas de la pestaña
 # --------------------------------------------------------------------------- #
-def _portada() -> html.Div:
-    """Cabecera ilustrada: el titular a la izquierda, la ilustración a la derecha.
-
-    La ilustración vive en assets/portada.svg y está dibujada con la misma
-    paleta que el tema, así que la portada y los gráficos se leen como una
-    sola pieza.
-    """
-    return html.Div(
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        html.Div(
-                            "Análisis exploratorio · TCGA-LGG y TCGA-GBM",
-                            className="hero-eyebrow",
-                        ),
-                        html.H2(
-                            "Gliomas: qué separa a un LGG de un GBM",
-                            className="hero-titulo",
-                        ),
-                        html.P(
-                            "839 pacientes, tres variables clínicas y veinte "
-                            "mutaciones. Este tablero mide cuáles de ellas "
-                            "separan de verdad los dos grados, y con qué fuerza.",
-                            className="hero-subtitulo",
-                        ),
-                        series_chips(),
-                        html.Div(
-                            "Por "
-                            + lista_y(autor["nombre"] for autor in AUTORES),
-                            className="hero-firma",
-                        ),
-                    ],
-                    lg=6,
-                    className="hero-texto",
-                ),
-                dbc.Col(
-                    html.Img(
-                        src=get_asset_url("portada.svg"),
-                        alt="Corte axial esquemático de un cerebro con una lesión "
-                            "en un hemisferio, enlazada al panel de veinte genes "
-                            "del estudio, con la casilla de IDH1 resaltada.",
-                        className="hero-imagen",
-                    ),
-                    lg=6,
-                ),
-            ],
-            className="align-items-center g-4",
-        ),
-        className="hero",
-    )
-
-
 def _kpis() -> list[dict]:
     """Indicadores de portada, todos calculados a partir del propio dataset.
 
@@ -121,7 +69,7 @@ def _kpis() -> list[dict]:
         {
             "valor": f"{int(asociacion['significativa'].sum())} de {len(asociacion)}",
             "etiqueta": "Variables con señal",
-            "detalle": "Asociadas al grado con p < 0,05 y |r| ≥ 0,10",
+            "detalle": r"Asociadas al grado con $p < 0{,}05$ y $|r| \geq 0{,}10$",
             "color": ACCENT_NEUTRAL,
         },
         {
@@ -152,7 +100,7 @@ def _enlace_pestana(
     descripcion = descripcion or DESCRIPCIONES[tab_id]
     return html.Button(
         [
-            html.I(className=f"bi {ICONOS[tab_id]} bloque-icono"),
+            icono(ICONOS[tab_id], "bloque-icono"),
             html.Span(
                 [
                     html.Span(nombre, className="bloque-enlace-nombre"),
@@ -160,7 +108,7 @@ def _enlace_pestana(
                 ],
                 className="bloque-enlace-cuerpo",
             ),
-            html.I(className="bi bi-arrow-right bloque-flecha"),
+            icono("arrow_forward", "bloque-flecha"),
         ],
         id={"type": "ir-a-pestana", "index": tab_id},
         n_clicks=0,
@@ -198,7 +146,7 @@ def _tira_documentacion() -> dbc.Card:
                     [
                         html.Div(
                             [
-                                html.I(className="bi bi-book bloque-icono"),
+                                icono("book", "bloque-icono"),
                                 html.Span("Documentación", className="bloque-titulo"),
                             ],
                             className="bloque-encabezado",
@@ -278,7 +226,6 @@ def layout() -> html.Div:
     """Layout de la pestaña de introducción."""
     return html.Div(
         [
-            _portada(),
             kpi_row(_kpis()),
             dbc.Row(
                 [
@@ -308,11 +255,12 @@ def layout() -> html.Div:
                                     titulo="El cuello de botella",
                                 ),
                                 paragraph(
-                                    "Este tablero aborda la primera mitad del desafío: "
-                                    "identificar qué variables clínicas y qué "
+                                    "Este tablero recorre el desafío completo: primero "
+                                    "identifica qué variables clínicas y qué "
                                     "mutaciones separan realmente a los dos grupos, y "
-                                    "con qué fuerza. Es el paso que decide qué merece "
-                                    "la pena medir antes de construir cualquier modelo."
+                                    "con qué fuerza; después entrena tres modelos para "
+                                    "medir cuánta precisión se conserva con solo las "
+                                    "que más aportan."
                                 ),
                             ],
                             titulo="El problema en una página",
@@ -326,7 +274,7 @@ def layout() -> html.Div:
             section_title("Cómo recorrer el tablero"),
             dbc.Row(
                 [
-                    dbc.Col(_bloque(bloque), lg=4, md=6, xs=12, className="mb-3")
+                    dbc.Col(_bloque(bloque), xl=3, md=6, xs=12, className="mb-3")
                     for bloque in BLOQUES
                     if bloque["en_guia"]
                 ],
