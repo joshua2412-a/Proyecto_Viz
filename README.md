@@ -29,6 +29,9 @@ Proyecto_Viz/
 ├── app.yaml                # Despliegue alternativo en App Engine
 ├── .gcloudignore           # Qué NO se sube a App Engine
 ├── requirements.txt        # Dependencias del dashboard
+├── modelos/                # Modelos del capítulo 2 exportados para el tablero
+│   ├── modelos_finales.json     # Los 3 clasificadores en formato portable (sin pickles)
+│   └── resumen_modelado.json    # Tablas y curvas de la pestaña Modelos
 ├── dataset/
 │   ├── README.md           # Cómo obtener el CSV y esquema esperado
 │   └── TCGA_InfoWithGrade.csv   # ← única copia de los datos (versionada: la imagen la necesita)
@@ -38,6 +41,8 @@ Proyecto_Viz/
 │   ├── theme.py            # Paleta validada y plantilla de Plotly
 │   ├── formato.py          # Cifras y enumeraciones en español (coma decimal)
 │   ├── data_loader.py      # Carga del dataset + estadística descriptiva
+│   ├── modelo.py           # Predicción y valores SHAP con los modelos portables
+│   ├── figures_modelo.py   # Figuras de las pestañas Modelos y Predicción
 │   ├── figures.py          # Constructores de todas las figuras
 │   └── components.py       # Componentes de interfaz reutilizables
 ├── tabs/                   # Una pestaña por archivo, cada una con su layout()
@@ -114,6 +119,19 @@ sus pines chocan con los de Dash:
 conda create -n gliomas-libro python=3.12 -y
 conda activate gliomas-libro
 pip install -r jbook\requirements.txt
+```
+
+Y el modelado (experimento, `02_Modelado.ipynb` y exportación de los modelos al
+dashboard) en un tercero, con las versiones exactas con las que se obtuvieron
+los resultados: pandas 3 y scikit-learn 1.9, incompatibles con los pines del
+libro.
+
+```powershell
+conda create -n gliomas-modelado python=3.12 -y
+conda activate gliomas-modelado
+pip install -r jbook\requirements-modelado.txt
+pip install notebook nbconvert ipykernel
+python -m ipykernel install --user --name gliomas-modelado
 ```
 
 ### macOS / Linux
@@ -217,13 +235,27 @@ jupyter-book build jbook/
 # Compilar y publicar en la rama gh-pages de este mismo repositorio
 python scripts/publicar_libro.py
 
-# Igual, pero reejecutando los notebooks desde el CSV
+# Igual, pero reejecutando antes el notebook del EDA desde el CSV
 python scripts/publicar_libro.py --forzar-ejecucion
 ```
 
 Por defecto `_config.yml` usa `execute_notebooks: "off"`: publica las salidas ya
 guardadas en los `.ipynb`, lo que hace el build rápido y sin dependencias
-científicas. `--forzar-ejecucion` recalcula todo y necesita el dataset.
+científicas. `--forzar-ejecucion` solo reejecuta `01_EDA.ipynb`: el notebook de
+modelado necesita su propio entorno y se ejecuta aparte, desde `jbook/`:
+
+```powershell
+conda activate gliomas-modelado
+python -m modelado.experimentos      # las 48 combinaciones (~2 h, reanudable)
+jupyter nbconvert --to notebook --execute --inplace 02_Modelado.ipynb --ExecutePreprocessor.timeout=-1 --ExecutePreprocessor.kernel_name=gliomas-modelado
+python -m modelado.exportar          # modelos/*.json para el dashboard
+```
+
+Para recalcularlo todo desde cero, hay que vaciar antes `jbook/resultados/`
+(conservando su `.gitignore`) y poner `RECALCULAR = True` en el notebook: el
+experimento se salta las combinaciones que ya tienen su archivo en
+`resultados/parciales/`. Después se publica con `gliomas-libro`, sin
+`--forzar-ejecucion`.
 
 ---
 
@@ -312,8 +344,20 @@ el libro con `python scripts/publicar_libro.py`.
   `random_state=42` en `01_EDA.ipynb`. Con el mismo valor, la misma estratificación
   y el mismo CSV, la partición 80/20 es exactamente la misma en las dos piezas.
   Si se cambia la semilla, hay que cambiarla en los dos sitios.
-- `scikit-learn` se usa solo para `train_test_split`. La cota `<1.8` de
-  `requirements.txt` venía del pipeline de modelado y hoy ya no hace falta, pero
-  se mantiene para no cambiar el entorno a mitad del proyecto.
+- Tres entornos, porque sus dependencias chocan: `gliomas` (dashboard,
+  `requirements.txt`), `gliomas-libro` (EDA y compilación del libro,
+  `jbook/requirements.txt`: pandas 2, scikit-learn 1.7) y `gliomas-modelado`
+  (modelado, `jbook/requirements-modelado.txt`: pandas 3, scikit-learn 1.9,
+  XGBoost 3.4.1). Las versiones exactas de la última ejecución del modelado
+  quedan en `jbook/resultados/entorno.json`.
+- El EDA y el modelado usan la misma partición: los 168 pacientes de prueba de
+  `dataset/test_data.csv` (escrito por el EDA) son exactamente los que el
+  modelado guarda en `modelos/resumen_modelado.json`. En el dashboard,
+  scikit-learn solo hace esa partición; los modelos se leen de JSON y predicen
+  con numpy, sin depender de las librerías de modelado.
+- Los resultados de XGBoost dependen de la versión de la librería: una
+  ejecución anterior (Linux, XGBoost 3.4.2) dio la regresión logística y el
+  Random Forest idénticos, pero otro XGBoost, y con él un panel mínimo de 4
+  variables en lugar de 8.
 - El EDA del dashboard describe por defecto el conjunto de **entrenamiento**,
   igual que el libro, para no filtrar información del conjunto de prueba.
