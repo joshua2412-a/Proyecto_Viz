@@ -2,9 +2,6 @@
 
 # Caracterización Clínico-Molecular del Grado Tumoral en Gliomas
 
-**Optimización del Diagnóstico de Gliomas mediante Ciencia de Datos y Visualización de Datos**
-<br>
-
 **Autores**
 
 Alejandro Cantillo Escorcia
@@ -47,7 +44,7 @@ La fase de modelado traduce estos hallazgos en clasificadores predictivos: regre
 
 - Entrenar regresión logística, Random Forest y XGBoost con validación cruzada anidada, comparar técnicas de balanceo y de optimización de hiperparámetros, evaluar discriminación, calibración e interpretabilidad, y determinar con pruebas estadísticas si las diferencias entre modelos son reales.
 
-- Presentar los resultados del análisis exploratorio mediante un Jupyter Book y recursos de visualización interactiva que permitan consultar y explorar los principales hallazgos sin necesidad de acceder directamente al código.
+- Presentar el análisis exploratorio y el modelado mediante un Jupyter Book y un tablero interactivo que permitan consultar los hallazgos, comparar los modelos y obtener predicciones sin necesidad de acceder directamente al código.
 
 
 
@@ -65,8 +62,9 @@ La fase de modelado traduce estos hallazgos en clasificadores predictivos: regre
 **Dashboard interactivo**
 
 El análisis de este libro tiene una contraparte interactiva: un tablero en Dash
-que recorre el planteamiento del problema, el marco teórico, la metodología y los
-resultados del EDA con gráficos navegables. Está desplegado en Google Cloud Run:
+que recorre el planteamiento del problema, el marco teórico, la metodología, los
+resultados del EDA y los modelos con gráficos navegables, y permite describir un
+paciente para ver qué predice cada modelo y por qué. Está desplegado en Google Cloud Run:
 [panel de visualización de datos](https://gliomas-dashboard-984926604434.us-central1.run.app).
 
 La fuente de este libro y el código del dashboard viven en el mismo proyecto:
