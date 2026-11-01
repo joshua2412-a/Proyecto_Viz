@@ -16,7 +16,7 @@ Uso:
     python scripts/publicar_libro.py                 # compila y publica
     python scripts/publicar_libro.py --solo-build    # compila y no publica
     python scripts/publicar_libro.py --solo-publicar # publica el build existente
-    python scripts/publicar_libro.py --forzar-ejecucion  # recalcula notebooks
+    python scripts/publicar_libro.py --forzar-ejecucion  # reejecuta el EDA
 
 Requisitos:
     pip install -r jbook/requirements.txt
@@ -38,6 +38,9 @@ LIBRO_DIR = BASE_DIR / "jbook"
 BUILD_DIR = LIBRO_DIR / "_build" / "html"
 
 REPO_LIBRO = "https://github.com/joshua2412-a/Proyecto_Viz.git"
+
+# Notebooks que --forzar-ejecucion puede reejecutar con el entorno del libro
+REEJECUTABLES = {"01_EDA.ipynb"}
 RAMA = "gh-pages"
 URL_SITIO = "https://joshua2412-a.github.io/Proyecto_Viz/"
 
@@ -69,6 +72,13 @@ def reejecutar_notebooks() -> None:
         )
 
     for notebook in sorted(LIBRO_DIR.glob("*.ipynb")):
+        # El de modelado necesita su propio entorno (gliomas-modelado, con
+        # jbook/requirements-modelado.txt): ejecutarlo aquí lo haría con las
+        # versiones del libro, que no son las de sus resultados. Se ejecuta
+        # aparte con nbconvert (ver README, sección 8).
+        if notebook.name not in REEJECUTABLES:
+            print(f"  Se omite {notebook.relative_to(BASE_DIR)}: se ejecuta en su propio entorno")
+            continue
         print(f"  Ejecutando {notebook.relative_to(BASE_DIR)} ...")
         libreta = nbformat.read(notebook, as_version=4)
         NotebookClient(
@@ -209,8 +219,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--forzar-ejecucion", action="store_true",
-        help="reejecuta los notebooks y guarda sus salidas antes de compilar; "
-             "hace falta siempre que se haya tocado una celda de código",
+        help="reejecuta el notebook del EDA y guarda sus salidas antes de compilar "
+             "(el de modelado se ejecuta aparte, con su propio entorno)",
     )
     argumentos = parser.parse_args()
 

@@ -1,0 +1,22 @@
+# Entorno para reejecutar 02_Modelado.ipynb
+# Instalación:  pip install -r jbook/requirements-modelado.txt
+#
+# Versiones exactas con las que se generaron los resultados de jbook/resultados/
+# (también registradas en jbook/resultados/entorno.json): Windows 11 y
+# Python 3.12, en el entorno conda `gliomas-modelado`. Va aparte del entorno
+# del libro (gliomas-libro, jbook/requirements.txt), que fija pandas 2 y
+# scikit-learn 1.7 para el notebook del EDA.
+numpy==2.5.3
+pandas==3.0.5
+scipy==1.18.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
+seaborn==0.13.2
+joblib==1.6.0
+# 3.4.2 (la de la ejecución en la nube) no está publicada para Windows;
+# la 3.4.1 es la misma versión menor, solo sin el último parche.
+xgboost==3.4.1
+imbalanced-learn==0.14.2
+optuna==5.0.0
+deap==1.4.1
+lime==0.2.0.1

@@ -6,3 +6,5 @@ root: intro
 chapters:
 - file: 01_EDA
   title: Análisis Exploratorio de Datos (EDA)
+- file: 02_Modelado
+  title: Modelado predictivo del grado tumoral

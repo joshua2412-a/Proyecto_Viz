@@ -2,9 +2,6 @@
 
 # Caracterización Clínico-Molecular del Grado Tumoral en Gliomas
 
-**Optimización del Diagnóstico de Gliomas mediante Ciencia de Datos y Visualización de Datos**
-<br>
-
 **Autores**
 
 Alejandro Cantillo Escorcia
@@ -31,33 +28,23 @@ Construir una solución analítica integral que permita identificar el subconjun
 
 El énfasis está en identificar las variables que aportan mayor información para la clasificación del grado tumoral, en lugar de incorporar la mayor cantidad posible de características. De esta manera, el análisis busca determinar cuáles de las variables disponibles presentan una asociación relevante con el grado del tumor y cuáles pueden ser descartadas sin perder capacidad discriminativa.
 
-La fase de modelado, orientada a traducir estos hallazgos en un clasificador predictivo, corresponde a una etapa posterior y queda fuera del alcance de esta entrega.
+La fase de modelado traduce estos hallazgos en clasificadores predictivos: regresión logística, Random Forest y XGBoost, combinados con cuatro técnicas de balanceo y cuatro métodos de optimización de hiperparámetros, evaluados con validación cruzada anidada y comparados con pruebas estadísticas formales.
 
 ## Objetivos específicos
 
-1. **Caracterizar la cohorte**
+- Describir el perfil clínico y mutacional de los pacientes, considerando variables como edad, género, grupo racial y estado de mutación de los genes disponibles, además de evaluar la calidad de los datos mediante la identificación de valores faltantes, valores atípicos y características de sus distribuciones.
 
-   Describir el perfil clínico y mutacional de los pacientes, considerando variables como edad, género, grupo racial y estado de mutación de los genes disponibles, además de evaluar la calidad de los datos mediante la identificación de valores faltantes, valores atípicos y características de sus distribuciones.
+- Separar el 20 % de los pacientes mediante una partición estratificada antes de realizar el análisis exploratorio, de modo que las decisiones tomadas durante el proceso no estén influenciadas por los datos destinados a la evaluación final.
 
-2. **Reservar un conjunto de prueba antes del análisis**
+- Contrastar cada predictor con el grado tumoral mediante pruebas estadísticas adecuadas a su naturaleza. Para las variables numéricas se empleará la prueba de Mann-Whitney y, para las variables binarias y categóricas, la prueba de Chi-cuadrado y la V de Cramér, con el propósito de ordenar las variables según su capacidad discriminativa.
 
-   Separar el 20 % de los pacientes mediante una partición estratificada antes de realizar el análisis exploratorio, de modo que las decisiones tomadas durante el proceso no estén influenciadas por los datos destinados a la evaluación final.
+- Evaluar la coocurrencia entre las mutaciones genéticas para detectar posibles relaciones o redundancias entre marcadores y determinar si el conjunto de variables retenido puede incorporarse posteriormente a un modelo sin generar problemas de multicolinealidad.
 
-3. **Medir la asociación de cada variable con el grado tumoral**
+- Identificar las variables que presentan una asociación significativa con el grado tumoral y distinguirlas de aquellas que aportan poca o ninguna evidencia de relación, con el objetivo de determinar un conjunto reducido de características relevantes para la clasificación.
 
-   Contrastar cada predictor con el grado tumoral mediante pruebas estadísticas adecuadas a su naturaleza. Para las variables numéricas se empleará la prueba de Mann-Whitney y, para las variables binarias y categóricas, la prueba de Chi-cuadrado y la V de Cramér, con el propósito de ordenar las variables según su capacidad discriminativa.
+- Entrenar regresión logística, Random Forest y XGBoost con validación cruzada anidada, comparar técnicas de balanceo y de optimización de hiperparámetros, evaluar discriminación, calibración e interpretabilidad, y determinar con pruebas estadísticas si las diferencias entre modelos son reales.
 
-4. **Descartar redundancia entre marcadores**
-
-   Evaluar la coocurrencia entre las mutaciones genéticas para detectar posibles relaciones o redundancias entre marcadores y determinar si el conjunto de variables retenido puede incorporarse posteriormente a un modelo sin generar problemas de multicolinealidad.
-
-5. **Delimitar el panel de variables relevante**
-
-   Identificar las variables que presentan una asociación significativa con el grado tumoral y distinguirlas de aquellas que aportan poca o ninguna evidencia de relación, con el objetivo de determinar un conjunto reducido de características relevantes para la clasificación.
-
-6. **Poner el análisis a disposición de otros usuarios**
-
-   Presentar los resultados del análisis exploratorio mediante un Jupyter Book y recursos de visualización interactiva que permitan consultar y explorar los principales hallazgos sin necesidad de acceder directamente al código.
+- Presentar el análisis exploratorio y el modelado mediante un Jupyter Book y un tablero interactivo que permitan consultar los hallazgos, comparar los modelos y obtener predicciones sin necesidad de acceder directamente al código.
 
 
 
@@ -75,8 +62,9 @@ La fase de modelado, orientada a traducir estos hallazgos en un clasificador pre
 **Dashboard interactivo**
 
 El análisis de este libro tiene una contraparte interactiva: un tablero en Dash
-que recorre el planteamiento del problema, el marco teórico, la metodología y los
-resultados del EDA con gráficos navegables. Está desplegado en Google Cloud Run:
+que recorre el planteamiento del problema, el marco teórico, la metodología, los
+resultados del EDA y los modelos con gráficos navegables, y permite describir un
+paciente para ver qué predice cada modelo y por qué. Está desplegado en Google Cloud Run:
 [panel de visualización de datos](https://gliomas-dashboard-984926604434.us-central1.run.app).
 
 La fuente de este libro y el código del dashboard viven en el mismo proyecto:

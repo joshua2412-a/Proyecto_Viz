@@ -73,6 +73,9 @@ sphinx:
   config:
     html_show_copyright: true
     language: es
+    # Texto del botón de las celdas con el código plegado (hide-input)
+    nb_code_prompt_show: "Mostrar el código"
+    nb_code_prompt_hide: "Ocultar el código"
     mathjax3_config:
       tex:
         macros:
