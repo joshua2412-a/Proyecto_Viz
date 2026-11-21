@@ -12,6 +12,8 @@ para cambiar de pestaña sin recargar nada.
 
 from __future__ import annotations
 
+import re
+
 import dash_bootstrap_components as dbc
 from dash import html
 
@@ -27,7 +29,7 @@ from utils.components import (
     section_title,
     series_chips,
 )
-from utils.config import URL_DATASET, URL_LIBRO
+from utils.config import URL_DATASET, URL_LIBRO, URL_VIDEO
 from utils.data_loader import (
     asociacion_con_grado,
     prevalencia_genes,
@@ -179,6 +181,59 @@ def _tira_documentacion() -> dbc.Card:
     )
 
 
+# Identificador de 11 caracteres de un video en cualquiera de las formas de
+# enlace que da YouTube (watch?v=, youtu.be/, shorts/, embed/, live/).
+_PATRON_YOUTUBE = re.compile(
+    r"(?:youtu\.be/|youtube(?:-nocookie)?\.com/"
+    r"(?:watch\?(?:.*&)?v=|embed/|shorts/|live/))([A-Za-z0-9_-]{11})"
+)
+
+
+def _id_youtube(url: str) -> str | None:
+    """Saca el identificador del video de un enlace de YouTube, o None."""
+    encontrado = _PATRON_YOUTUBE.search(url or "")
+    return encontrado.group(1) if encontrado else None
+
+
+def _seccion_video() -> list:
+    """El recorrido del tablero en video, embebido como el libro en Documentación.
+
+    Devuelve una lista vacía mientras `URL_VIDEO` no tenga un enlace válido:
+    así la sección no aparece a medias en el despliegue. Se usa el dominio
+    youtube-nocookie, que no deja cookies hasta que se reproduce el video.
+    """
+    video = _id_youtube(URL_VIDEO)
+    if not video:
+        return []
+    return [
+        section_title("El tablero en video"),
+        card(
+            [
+                html.Div(
+                    html.Iframe(
+                        src=f"https://www.youtube-nocookie.com/embed/{video}?rel=0",
+                        title="Recorrido por el tablero en video",
+                        allow="accelerometer; clipboard-write; encrypted-media; "
+                              "gyroscope; picture-in-picture; fullscreen",
+                        className="video-iframe",
+                    ),
+                    className="video-marco",
+                ),
+                html.Div(
+                    [
+                        "Si el video no carga en este marco, ábrelo en YouTube: ",
+                        enlace_externo("ver el recorrido", URL_VIDEO),
+                    ],
+                    className="graph-note mt-2",
+                ),
+            ],
+            titulo="Recorrido por el tablero",
+            subtitulo="Los autores explican cada pestaña, de la introducción a las "
+                      "conclusiones",
+        ),
+    ]
+
+
 def _ficha_dataset() -> dbc.Card:
     """Ficha técnica del dataset."""
     return card(
@@ -280,6 +335,7 @@ def layout() -> html.Div:
                 ],
                 className="g-3",
             ),
+            *_seccion_video(),
             _tira_documentacion(),
         ],
         className="vista-pestana",

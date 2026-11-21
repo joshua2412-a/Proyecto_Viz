@@ -38,6 +38,12 @@ URL_LIBRO_EDA = f"{URL_LIBRO}01_EDA.html"
 URL_LIBRO_MODELADO = f"{URL_LIBRO}02_Modelado.html"
 URL_REPO_LIBRO = "https://github.com/joshua2412-a/Proyecto_Viz"
 
+# Video del recorrido por el tablero (YouTube). Vale cualquier enlace de
+# YouTube: el de la barra de direcciones (watch?v=...), el corto de
+# «Compartir» (youtu.be/...) o el de un Short. Mientras esté vacío, la sección
+# del video no aparece en Introducción, así que se puede desplegar sin él.
+URL_VIDEO = "https://youtu.be/BSiH4ggWeG8"
+
 # Autores del proyecto. El orden es el mismo que en la portada del libro
 # (jbook/intro.md) y en `author` de jbook/_config.yml: los tres sitios firman
 # igual. Un perfil que falte se omite sin dejar un enlace roto, así que basta

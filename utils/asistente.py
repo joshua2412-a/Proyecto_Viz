@@ -141,10 +141,10 @@ def _nombre(variable: str) -> str:
 def _rho(v: float) -> str:
     # En LaTeX, como el resto del tablero: los globos del asistente se
     # componen con MathJax (dcc.Markdown con mathjax=True).
-    return f"$\\rho = {tnum(v, 2, signo=True)}$"
+    return f"$r = {tnum(v, 2, signo=True)}$"
 
 
-UMBRAL_RHO = r"$|\rho| \geq 0{,}10$"
+UMBRAL_RHO = r"$|r| \geq 0{,}10$"
 
 
 def _auc(v: float) -> str:
@@ -227,7 +227,7 @@ def _r_asociadas(h):
 def _r_no_aportan(h):
     return (
         f"Estas {len(h['sin_senal'])} variables no muestran una asociación apreciable con el "
-        r"grado ($p \geq 0{,}05$ o $|\rho| < 0{,}10$):" "\n\n"
+        r"grado ($p \geq 0{,}05$ o $|r| < 0{,}10$):" "\n\n"
         f"{lista_y(_nombre(v) for v in h['sin_senal'])}.\n\n"
         "Que no discriminen el grado **no** las hace irrelevantes en oncología: pueden "
         "importar para el pronóstico o el tratamiento, que este análisis no mide."
@@ -412,7 +412,7 @@ FAQ = [
      "texto": _r_entrenamiento, "ir": "tab-modelos"},
     {"id": "panel", "pregunta": "¿Bastan pocas variables para decidir el grado?",
      "claves": ["panel", "pocas", "bastan", "cuatro", "4 variables", "reduc", "ahorr", "coste", "costo", "minim"],
-     "texto": _r_panel, "ir": "tab-conclusiones"},
+     "texto": _r_panel, "ir": "tab-modelos"},
     {"id": "importancia", "pregunta": "¿Qué variables pesan más en los modelos?",
      "claves": ["pesan", "peso", "shap", "importancia", "contribu"],
      "texto": _r_importancia, "ir": "tab-modelos"},
@@ -818,11 +818,11 @@ def _contexto_ia() -> str:
     h = hechos()
     pestanas = "\n".join(f"- {tab_id}: {ETIQUETAS[tab_id]} — {DESCRIPCIONES[tab_id]}" for tab_id in ORDEN)
     asociacion = "\n".join(
-        f"- {_nombre(v)} ({v}): ρ = {num(h['rho'][v], 3)}, p = {h['p'][v]:.2e}, "
+        f"- {_nombre(v)} ({v}): r = {num(h['rho'][v], 3)}, p = {h['p'][v]:.2e}, "
         f"{'con señal' if v in dict(h['con_senal']) else 'sin señal apreciable'}"
         for v in h["rho"]
     )
-    faq = "\n\n".join(f"### {f['pregunta']}\n{f['texto'](h)}" for f in FAQ)
+    faq = "\n\n".join(f"### {f['pregunta']}\nPestaña: {f['ir']}\n{f['texto'](h)}" for f in FAQ)
     glosario = "\n".join(f"- **{t}**: {d}" for t, (_, d, _) in GLOSARIO.items())
     genes = "\n".join(f"- {g}: {d}" for g, d in GENE_DESCRIPCION.items())
     return f"""Eres Glía, la asistente virtual de un dashboard académico en Dash sobre gliomas: «Caracterización Clínico-Molecular del Grado Tumoral en Gliomas» (LGG frente a GBM, datos TCGA), de {lista_y(a['nombre'] for a in AUTORES)}. En el tablero te dibujan como una célula glial (un astrocito) hecha de partículas, porque los gliomas nacen de células como tú.
@@ -833,16 +833,16 @@ Cómo responder:
 - Cuando expliques un gráfico, no describas detalles visuales (colores, rayas, formas, posición) que no aparezcan en su nota: no ves el gráfico, solo su título, su nota y las cifras de este contexto.
 - Siempre en español, con coma decimal (0,923) y en un tono claro y cercano.
 - Breve: normalmente 2 a 6 frases o una lista corta. Markdown sencillo (negritas y listas); nada de tablas ni encabezados.
-- La notación matemática va en LaTeX entre $...$, como en el resto del tablero (por ejemplo $\\rho = -0{{,}}70$ o $|\\rho| \\geq 0{{,}}10$).
+- La notación matemática va en LaTeX entre $...$, como en el resto del tablero (por ejemplo $r = -0{{,}}70$ o $|r| \\geq 0{{,}}10$); la correlación de Spearman se escribe r, nunca ρ.
 - Usa SOLO las cifras y hechos de este contexto. Si algo no está aquí, dilo con franqueza y sugiere la pestaña o el Jupyter Book donde podría estar. No inventes cifras.
 - Solo hablas de este tablero y de lo que hace falta para entenderlo (gliomas, estadística, modelos). Si la pregunta es ajena (cultura general, tareas, programación de otra cosa…), no la respondas: di en una frase que solo puedes ayudar con el tablero y sugiere algo que sí puedes explicar.
 - No des consejo médico ni diagnósticos: el tablero es una herramienta docente. Si alguien describe un caso real, recomiéndale hablar con su equipo médico.
-- Si la respuesta está desarrollada en una pestaña concreta, termina con una única etiqueta [[ir:ID]] usando uno de estos ID. No escribas la etiqueta en ningún otro caso.
+- Si la respuesta está desarrollada en una pestaña concreta, termina con una única etiqueta [[ir:ID]] usando uno de estos ID. Si la pregunta coincide con una de las preguntas frecuentes, usa la pestaña indicada en su «Pestaña:». No escribas la etiqueta en ningún otro caso.
 
 Pestañas (ID: nombre — contenido):
 {pestanas}
 
-Asociación de cada predictora con el grado (Spearman con el grado sobre los 671 de entrenamiento; ρ negativo empuja hacia LGG, positivo hacia GBM; «con señal» = p < 0,05 y |ρ| ≥ 0,10):
+Asociación de cada predictora con el grado (Spearman con el grado sobre los 671 de entrenamiento; r negativo empuja hacia LGG, positivo hacia GBM; «con señal» = p < 0,05 y |r| ≥ 0,10):
 {asociacion}
 
 Función de los genes del panel:
